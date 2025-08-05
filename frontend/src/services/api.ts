@@ -1,0 +1,566 @@
+import axios from 'axios';
+
+// API Configuration
+const API_BASE_URL = 'http://localhost:5001';
+
+// Create axios instance with default config
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Request interceptor to add auth token
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('clerk-token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor for error handling
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Handle unauthorized access
+      console.error('Authentication required');
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Types for API responses
+export interface Sprint {
+  milestone_id: number;
+  title: string;
+  total_issues: number;
+  closed_issues: number;
+  velocity_hours: number;
+  avg_hours_per_issue: number;
+}
+
+export interface VelocityStats {
+  sprints: Sprint[];
+  total_issues_closed: number;
+  average_velocity_hours: number;
+  backlog_remaining_hours: number;
+  estimated_sprints_to_finish_backlog: number;
+}
+
+export interface VelocityChart {
+  chart_data: string;
+  sprints: string[];
+  velocities: number[];
+}
+
+export interface EpicProgress {
+  epic_id: number;
+  epic_title: string;
+  progress_data: Array<{
+    date: string;
+    estimated_progress: number;
+    actual_progress: number;
+  }>;
+}
+
+export interface PeriodSuccess {
+  epic_id: number;
+  from_date: string;
+  to_date: string;
+  successful: boolean;
+  total_issues: number;
+  closed_issues: number;
+}
+
+export interface EpicSuccess {
+  epic_id: number;
+  epic_title: string;
+  successful: boolean;
+}
+
+export interface DeveloperSuccess {
+  milestone_id: number;
+  milestone_title: string;
+  developers: Array<{
+    developer: string;
+    weeks: Array<{
+      week: string;
+      closed: number;
+      total: number;
+      percent: number;
+      successful: boolean;
+    }>;
+  }>;
+}
+
+export interface DeveloperSummary {
+  developer: string;
+  total_issues: number;
+  closed_issues: number;
+  progress_percent: number;
+  successful: boolean;
+}
+
+export interface EpicStatus {
+  epic_id: number;
+  epic_title: string;
+  start_date: string;
+  due_date: string;
+  successful: boolean;
+  milestones: Array<{
+    milestone_id: number;
+    title: string;
+    total_issues: number;
+    closed_issues: number;
+    progress_percent: number;
+    successful: boolean;
+  }>;
+}
+
+export interface Milestone {
+  id: number;
+  title: string;
+  start_date: string;
+  due_date: string;
+  issues: Array<{
+    id: number;
+    title: string;
+    state: string;
+    assignee: string;
+    closed_date: string | null;
+    milestone_id: number;
+  }>;
+}
+
+export interface MilestoneSuccess {
+  milestone_id: number;
+  title: string;
+  successful: boolean;
+}
+
+export interface GitLabVelocity {
+  milestone_id: number;
+  milestone_title: string;
+  total_issues: number;
+  closed_issues: number;
+  total_estimated_hours: number;
+  total_spent_hours: number;
+  velocity_estimated_hours: number;
+  velocity_spent_hours: number;
+  estimation_accuracy_percent: number;
+  avg_hours_per_issue: number;
+}
+
+export interface TeamCapacity {
+  team_member: string;
+  total_issues: number;
+  closed_issues: number;
+  total_estimated_hours: number;
+  total_spent_hours: number;
+  velocity_hours: number;
+  estimation_accuracy_percent: number;
+  avg_hours_per_issue: number;
+  completion_rate: number;
+}
+
+export interface IssueTypeAnalysis {
+  issue_type: string;
+  total_count: number;
+  closed_count: number;
+  total_estimated_hours: number;
+  total_spent_hours: number;
+  velocity_hours: number;
+  estimation_accuracy_percent: number;
+  avg_hours_per_issue: number;
+  completion_rate: number;
+}
+
+export interface PriorityAnalysis {
+  priority: string;
+  total_count: number;
+  closed_count: number;
+  total_estimated_hours: number;
+  total_spent_hours: number;
+  velocity_hours: number;
+  estimation_accuracy_percent: number;
+  avg_hours_per_issue: number;
+  completion_rate: number;
+}
+
+export interface BurndownData {
+  milestone_id: number;
+  milestone_title: string;
+  total_estimated_hours: number;
+  start_date: string;
+  end_date: string;
+  burndown_data: Array<{
+    date: string;
+    actual_remaining_hours: number;
+    ideal_remaining_hours: number;
+    day_number: number;
+  }>;
+}
+
+export interface LeadTimeAnalysis {
+  total_issues_analyzed: number;
+  average_lead_time_days: number;
+  median_lead_time_days: number;
+  min_lead_time_days: number;
+  max_lead_time_days: number;
+  lead_time_std_dev: number;
+  issues: unknown[];
+}
+
+export interface ThroughputAnalysis {
+  analysis_period_days: number;
+  start_date: string;
+  end_date: string;
+  total_issues_completed: number;
+  average_daily_throughput: number;
+  average_weekly_throughput: number;
+  daily_throughput: unknown;
+  weekly_throughput: unknown;
+}
+
+export interface DefectRateAnalysis {
+  total_issues: number;
+  total_closed_issues: number;
+  defect_rate_percent: number;
+  closed_defect_rate_percent: number;
+  issue_type_breakdown: Record<string, number>;
+  closed_issue_type_breakdown: Record<string, number>;
+}
+
+export interface VelocityForecast {
+  historical_velocities: number[];
+  average_velocity_hours: number;
+  velocity_trend: number;
+  forecasts: Array<{
+    sprint_number: number;
+    forecasted_velocity_hours: number;
+    confidence_level: string;
+  }>;
+}
+
+export interface TeamVelocityTrends {
+  [developer: string]: {
+    average_velocity_hours: number;
+    velocity_trend: number;
+    sprints_analyzed: number;
+    velocity_history: unknown[];
+  };
+}
+
+export interface SprintHealth {
+  milestone_id: number;
+  milestone_title: string;
+  health_status: string;
+  completion_rate_percent: number;
+  estimation_accuracy_percent: number;
+  progress_percentage: number;
+  total_issues: number;
+  closed_issues: number;
+  total_estimated_hours: number;
+  total_spent_hours: number;
+  velocity_hours: number;
+  days_elapsed: number;
+  total_days: number;
+  days_remaining: number;
+}
+
+export interface DashboardOverview {
+  summary: {
+    total_projects: number;
+    total_milestones: number;
+    total_epics: number;
+    total_issues: number;
+    total_closed_issues: number;
+    total_estimated_hours: number;
+    total_spent_hours: number;
+    overall_completion_rate: number;
+    estimation_accuracy: number;
+  };
+  recent_activity: unknown[];
+  health_indicators: {
+    completion_rate_status: string;
+    estimation_accuracy_status: string;
+  };
+}
+
+export interface TeamDashboard {
+  team_capacity: TeamCapacity[];
+  team_performance: unknown[];
+  lead_time_summary: {
+    average_lead_time_days: number;
+    total_issues_analyzed: number;
+  };
+  throughput_summary: {
+    total_issues_completed: number;
+    average_daily_throughput: number;
+    average_weekly_throughput: number;
+  };
+}
+
+export interface SprintDashboard {
+  current_sprint: {
+    id: number;
+    title: string;
+    start_date: string;
+    due_date: string;
+    progress: unknown;
+  };
+  upcoming_sprints: unknown[];
+  recent_completed_sprints: unknown[];
+  velocity_summary: {
+    average_velocity_hours: number;
+    total_sprints_analyzed: number;
+  };
+  defect_summary: {
+    defect_rate_percent: number;
+    total_issues: number;
+  };
+}
+
+export interface HealthDashboard {
+  sprint_health: SprintHealth[];
+  epic_health: unknown[];
+  overall_health: {
+    health_score: number;
+    health_status: string;
+    total_sprints: number;
+    excellent_sprints: number;
+    good_sprints: number;
+  };
+}
+
+export interface Epic {
+  id: number;
+  title: string;
+  start_date: string;
+  due_date: string;
+  project_id: number;
+}
+
+export interface GitLabImportRequest {
+  project_ids: number[];
+  gitlab_url?: string;
+  access_token: string;
+}
+
+export interface GitLabImportResponse {
+  message: string;
+  results: Array<{
+    project_id: number;
+    milestones_imported: number;
+    issues_imported: number;
+  }>;
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+}
+
+export interface TokenVerification {
+  valid: boolean;
+  user: {
+    id: string;
+    email: string;
+  };
+}
+
+// API Service Class
+export class GitLabAnalyticsAPI {
+  // Health Check
+  static async healthCheck() {
+    const response = await apiClient.get('/health');
+    return response.data;
+  }
+
+  // Core Analytics
+  static async getVelocityStats(backlog?: number): Promise<VelocityStats> {
+    const params = backlog ? { backlog } : {};
+    const response = await apiClient.get('/analytics/velocity/stats', { params });
+    return response.data;
+  }
+
+  static async getVelocityChart(): Promise<VelocityChart> {
+    const response = await apiClient.get('/analytics/velocity/chart');
+    return response.data;
+  }
+
+  static async getEpicProgress(epicId: number): Promise<EpicProgress> {
+    const response = await apiClient.get(`/epic/progress/${epicId}`);
+    return response.data;
+  }
+
+  static async checkPeriodSuccess(
+    epicId: number,
+    fromDate: string,
+    toDate: string
+  ): Promise<PeriodSuccess> {
+    const params = { epic_id: epicId, from_date: fromDate, to_date: toDate };
+    const response = await apiClient.get('/analytics/is-period-successful', { params });
+    return response.data;
+  }
+
+  static async getEpicSuccess(): Promise<EpicSuccess[]> {
+    const response = await apiClient.get('/analytics/epic-success');
+    return response.data;
+  }
+
+  static async getDeveloperSuccess(): Promise<DeveloperSuccess[]> {
+    const response = await apiClient.get('/analytics/developer-success');
+    return response.data;
+  }
+
+  static async getDeveloperSummary(): Promise<DeveloperSummary[]> {
+    const response = await apiClient.get('/analytics/developer-summary');
+    return response.data;
+  }
+
+  static async getEpicStatus(): Promise<EpicStatus> {
+    const response = await apiClient.get('/analytics/epic-status');
+    return response.data;
+  }
+
+  static async getMilestones(): Promise<Milestone[]> {
+    const response = await apiClient.get('/analytics/milestones');
+    return response.data;
+  }
+
+  static async getMilestoneSuccess(): Promise<MilestoneSuccess[]> {
+    const response = await apiClient.get('/analytics/milestone-success');
+    return response.data;
+  }
+
+  // GitLab Time-Based Analytics
+  static async getGitLabVelocity(): Promise<GitLabVelocity[]> {
+    const response = await apiClient.get('/analytics/gitlab/velocity');
+    return response.data;
+  }
+
+  static async getTeamCapacity(): Promise<TeamCapacity[]> {
+    const response = await apiClient.get('/analytics/gitlab/team-capacity');
+    return response.data;
+  }
+
+  static async getIssueTypeAnalysis(): Promise<IssueTypeAnalysis[]> {
+    const response = await apiClient.get('/analytics/gitlab/issue-types');
+    return response.data;
+  }
+
+  static async getPriorityAnalysis(): Promise<PriorityAnalysis[]> {
+    const response = await apiClient.get('/analytics/gitlab/priorities');
+    return response.data;
+  }
+
+  static async getBurndownData(milestoneId: number): Promise<BurndownData> {
+    const response = await apiClient.get(`/analytics/gitlab/burndown/${milestoneId}`);
+    return response.data;
+  }
+
+  // Advanced Analytics
+  static async getLeadTimeAnalysis(): Promise<LeadTimeAnalysis> {
+    const response = await apiClient.get('/analytics/lead-time');
+    return response.data;
+  }
+
+  static async getThroughputAnalysis(days?: number): Promise<ThroughputAnalysis> {
+    const params = days ? { days } : {};
+    const response = await apiClient.get('/analytics/throughput', { params });
+    return response.data;
+  }
+
+  static async getDefectRateAnalysis(): Promise<DefectRateAnalysis> {
+    const response = await apiClient.get('/analytics/defect-rate');
+    return response.data;
+  }
+
+  static async getVelocityForecast(sprintsAhead?: number): Promise<VelocityForecast> {
+    const params = sprintsAhead ? { sprints_ahead: sprintsAhead } : {};
+    const response = await apiClient.get('/analytics/velocity-forecast', { params });
+    return response.data;
+  }
+
+  static async getTeamVelocityTrends(): Promise<TeamVelocityTrends> {
+    const response = await apiClient.get('/analytics/team-velocity-trends');
+    return response.data;
+  }
+
+  static async getSprintHealth(milestoneId: number): Promise<SprintHealth> {
+    const response = await apiClient.get(`/analytics/sprint-health/${milestoneId}`);
+    return response.data;
+  }
+
+  // Dashboard Endpoints
+  static async getDashboardOverview(): Promise<DashboardOverview> {
+    const response = await apiClient.get('/dashboard/overview');
+    return response.data;
+  }
+
+  static async getTeamDashboard(): Promise<TeamDashboard> {
+    const response = await apiClient.get('/dashboard/team');
+    return response.data;
+  }
+
+  static async getSprintDashboard(): Promise<SprintDashboard> {
+    const response = await apiClient.get('/dashboard/sprint');
+    return response.data;
+  }
+
+  static async getHealthDashboard(): Promise<HealthDashboard> {
+    const response = await apiClient.get('/dashboard/health');
+    return response.data;
+  }
+
+  // Basic Data Endpoints
+  static async getEpics(): Promise<Epic[]> {
+    const response = await apiClient.get('/epics');
+    return response.data;
+  }
+
+  static async getMilestonesList(): Promise<Milestone[]> {
+    const response = await apiClient.get('/milestones');
+    return response.data;
+  }
+
+  // GitLab Integration
+  static async importFromGitLab(data: GitLabImportRequest): Promise<GitLabImportResponse> {
+    const response = await apiClient.post('/import/gitlab', data);
+    return response.data;
+  }
+
+  // Authentication Endpoints
+  static async getUserProfile(): Promise<UserProfile> {
+    const response = await apiClient.get('/auth/me');
+    return response.data;
+  }
+
+  static async verifyToken(token: string): Promise<TokenVerification> {
+    const response = await apiClient.post('/auth/verify', { token });
+    return response.data;
+  }
+
+  static async getProtectedRoute(): Promise<unknown> {
+    const response = await apiClient.get('/auth/protected');
+    return response.data;
+  }
+
+  static async getOptionalAuthRoute(): Promise<unknown> {
+    const response = await apiClient.get('/auth/optional');
+    return response.data;
+  }
+}
+
+export default GitLabAnalyticsAPI;
