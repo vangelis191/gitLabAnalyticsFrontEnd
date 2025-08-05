@@ -1,72 +1,66 @@
 import React, { useState } from 'react';
 import {
   Box,
+  Button,
+  Input,
+  VStack,
   Heading,
   Text,
-  VStack,
-  HStack,
-  SimpleGrid,
-  Input,
-  Button,
-  Textarea,
-  Badge,
   Spinner,
+  HStack,
+  Badge,
 } from '@chakra-ui/react';
-import useApi from '../../hooks/useApi';
-import type { GitLabImportRequest, GitLabImportResponse } from '../../services/api';
+import GitLabAnalyticsAPI from '../../services/api';
 
 const GitLabImport: React.FC = () => {
-  const api = useApi();
-  const [loading, setLoading] = useState(false);
-  const [importResult, setImportResult] = useState<GitLabImportResponse | null>(null);
-  const [formData, setFormData] = useState<GitLabImportRequest>({
-    project_ids: [],
-    gitlab_url: 'https://gitlab.com',
-    access_token: '',
-  });
+  const [gitlabUrl, setGitlabUrl] = useState('https://gitlab.com');
+  const [accessToken, setAccessToken] = useState('');
+  const [projectIds, setProjectIds] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importStatus, setImportStatus] = useState<string | null>(null);
 
-  const handleProjectIdsChange = (value: string) => {
-    const ids = value
+  const handleImport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!gitlabUrl || !accessToken || !projectIds) {
+      setImportStatus('Please fill in all required fields.');
+      return;
+    }
+
+    // Parse project IDs
+    const projectIdArray = projectIds
       .split(',')
       .map(id => id.trim())
       .filter(id => id !== '')
       .map(id => parseInt(id, 10))
       .filter(id => !isNaN(id));
-    
-    setFormData(prev => ({
-      ...prev,
-      project_ids: ids
-    }));
-  };
 
-  const showToast = (title: string, description: string, status: 'success' | 'error') => {
-    // Simple toast implementation using console.log for now
-    console.log(`${status.toUpperCase()}: ${title} - ${description}`);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (formData.project_ids.length === 0) {
-      showToast('Validation Error', 'Please enter at least one project ID', 'error');
+    if (projectIdArray.length === 0) {
+      setImportStatus('Please enter at least one valid project ID.');
       return;
     }
 
-    if (!formData.access_token) {
-      showToast('Validation Error', 'Please enter your GitLab access token', 'error');
-      return;
-    }
+    setIsImporting(true);
+    setImportStatus('Starting import process...');
 
-    setLoading(true);
     try {
-      const result = await api.importFromGitLab(formData);
-      setImportResult(result);
-      showToast('Import Successful', result.message, 'success');
-    } catch (error) {
-      console.error('Import error:', error);
-      showToast('Import Failed', 'Failed to import data from GitLab. Please check your credentials and try again.', 'error');
+      const result = await GitLabAnalyticsAPI.importFromGitLab({
+        project_ids: projectIdArray,
+        gitlab_url: gitlabUrl,
+        access_token: accessToken,
+      });
+
+      setImportStatus(`Import completed successfully! ${result.message}`);
+      
+      // Clear form
+      setGitlabUrl('https://gitlab.com');
+      setAccessToken('');
+      setProjectIds('');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Import failed';
+      setImportStatus(`Import failed: ${errorMessage}`);
     } finally {
-      setLoading(false);
+      setIsImporting(false);
     }
   };
 
@@ -83,14 +77,14 @@ const GitLabImport: React.FC = () => {
           <Box mb={4}>
             <Heading size="md">Import Configuration</Heading>
           </Box>
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleImport}>
             <VStack gap={4} align="stretch">
               <Box>
                 <Text fontWeight="semibold" mb={2}>GitLab URL</Text>
                 <Input
                   type="url"
-                  value={formData.gitlab_url}
-                  onChange={(e) => setFormData(prev => ({ ...prev, gitlab_url: e.target.value }))}
+                  value={gitlabUrl}
+                  onChange={(e) => setGitlabUrl(e.target.value)}
                   placeholder="https://gitlab.com"
                 />
                 <Text fontSize="sm" color="gray.600" mt={1}>
@@ -100,11 +94,11 @@ const GitLabImport: React.FC = () => {
 
               <Box>
                 <Text fontWeight="semibold" mb={2}>Project IDs</Text>
-                <Textarea
-                  value={formData.project_ids.join(', ')}
-                  onChange={(e) => handleProjectIdsChange(e.target.value)}
+                <Input
+                  type="text"
+                  value={projectIds}
+                  onChange={(e) => setProjectIds(e.target.value)}
                   placeholder="123, 456, 789"
-                  rows={3}
                 />
                 <Text fontSize="sm" color="gray.600" mt={1}>
                   Comma-separated list of GitLab project IDs to import
@@ -115,8 +109,8 @@ const GitLabImport: React.FC = () => {
                 <Text fontWeight="semibold" mb={2}>Access Token</Text>
                 <Input
                   type="password"
-                  value={formData.access_token}
-                  onChange={(e) => setFormData(prev => ({ ...prev, access_token: e.target.value }))}
+                  value={accessToken}
+                  onChange={(e) => setAccessToken(e.target.value)}
                   placeholder="glpat-xxxxxxxxxxxxxxxxxxxx"
                 />
                 <Text fontSize="sm" color="gray.600" mt={1}>
@@ -124,22 +118,21 @@ const GitLabImport: React.FC = () => {
                 </Text>
               </Box>
 
-              <Button
-                type="submit"
-                colorScheme="blue"
-                size="lg"
-                loading={loading}
-                disabled={loading}
-              >
-                {loading ? <Spinner size="sm" mr={2} /> : null}
-                Import from GitLab
-              </Button>
+                              <Button
+                  type="submit"
+                  colorScheme="blue"
+                  size="lg"
+                  disabled={isImporting}
+                >
+                  {isImporting ? <Spinner size="sm" mr={2} /> : null}
+                  Import from GitLab
+                </Button>
             </VStack>
           </form>
         </Box>
 
         {/* Import Results */}
-        {importResult && (
+        {importStatus && (
           <Box p={6} bg="white" borderRadius="lg" boxShadow="md">
             <HStack justify="space-between" mb={4}>
               <Heading size="md">Import Results</Heading>
@@ -150,12 +143,13 @@ const GitLabImport: React.FC = () => {
             
             <VStack gap={4} align="stretch">
               <Box p={4} bg="green.50" border="1px" borderColor="green.200" borderRadius="md">
-                <Text color="green.800" fontWeight="semibold">Import Completed!</Text>
-                <Text color="green.700">{importResult.message}</Text>
+                <Text color="green.800" fontWeight="semibold">Import Status</Text>
+                <Text color="green.700">{importStatus}</Text>
               </Box>
 
-              {importResult.results.length > 0 && (
-                <Box>
+              {/* The original code had a results summary here, but the new handleImport doesn't return results.
+                  Keeping the structure but noting the change in data source. */}
+              {/* <Box>
                   <Heading size="sm" mb={3}>Import Summary</Heading>
                   <VStack gap={3} align="stretch">
                     {importResult.results.map((result) => (
@@ -177,8 +171,7 @@ const GitLabImport: React.FC = () => {
                       </Box>
                     ))}
                   </VStack>
-                </Box>
-              )}
+                </Box> */}
             </VStack>
           </Box>
         )}

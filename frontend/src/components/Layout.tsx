@@ -13,9 +13,14 @@ import {
   Icon,
   Badge,
 } from '@chakra-ui/react';
-import { FiMenu, FiBarChart, FiTrendingUp, FiTarget, FiHome, FiUsers, FiCalendar, FiActivity, FiDownload } from 'react-icons/fi';
+import { FiMenu, FiBarChart, FiTrendingUp, FiTarget, FiHome, FiUsers, FiCalendar, FiActivity, FiDownload, FiLogOut, FiPieChart } from 'react-icons/fi';
 
-const Layout: React.FC = () => {
+interface LayoutProps {
+  onLogout: () => void;
+  user: unknown;
+}
+
+const Layout: React.FC<LayoutProps> = ({ onLogout, user }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const navigationItems = [
@@ -23,6 +28,7 @@ const Layout: React.FC = () => {
     { icon: FiBarChart, label: 'Dashboard', path: '/dashboard' },
     { icon: FiTrendingUp, label: 'Velocity', path: '/velocity' },
     { icon: FiTarget, label: 'Epics', path: '/epics' },
+    { icon: FiPieChart, label: 'Epic Chart', path: '/epic-chart' },
     { icon: FiUsers, label: 'Team', path: '/team' },
     { icon: FiCalendar, label: 'Sprint', path: '/sprint' },
     { icon: FiActivity, label: 'Health', path: '/health' },
@@ -49,9 +55,43 @@ const Layout: React.FC = () => {
             </Heading>
           </HStack>
 
-          <Badge colorScheme="green" variant="subtle">
-            Connected
-          </Badge>
+          <HStack gap={4}>
+            {user && (
+              <HStack gap={2}>
+                <Box 
+                  w="32px" 
+                  h="32px" 
+                  borderRadius="full" 
+                  bg="blue.500" 
+                  display="flex" 
+                  alignItems="center" 
+                  justifyContent="center"
+                  color="white"
+                  fontSize="sm"
+                  fontWeight="bold"
+                >
+                  {user.first_name?.[0]}{user.last_name?.[0]}
+                </Box>
+                <VStack align="start" gap={0}>
+                  <Text fontSize="sm" fontWeight="medium">{user.first_name} {user.last_name}</Text>
+                  <Text fontSize="xs" color="gray.500">{user.email}</Text>
+                </VStack>
+              </HStack>
+            )}
+            
+            <Badge colorScheme="green" variant="subtle">
+              Connected
+            </Badge>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onLogout}
+            >
+              <Icon as={FiLogOut} mr={2} />
+              Logout
+            </Button>
+          </HStack>
         </HStack>
       </Box>
 
@@ -102,6 +142,31 @@ const Layout: React.FC = () => {
                   ))}
 
                   <Box borderTop="1px" borderColor="gray.200" my={6} />
+
+                  {user && (
+                    <VStack gap={3} align="stretch" p={4} bg="gray.50" borderRadius="md" mb={4}>
+                      <HStack gap={3}>
+                        <Box 
+                          w="32px" 
+                          h="32px" 
+                          borderRadius="full" 
+                          bg="blue.500" 
+                          display="flex" 
+                          alignItems="center" 
+                          justifyContent="center"
+                          color="white"
+                          fontSize="sm"
+                          fontWeight="bold"
+                        >
+                          {user.first_name?.[0]}{user.last_name?.[0]}
+                        </Box>
+                        <VStack align="start" gap={0}>
+                          <Text fontSize="sm" fontWeight="semibold">{user.first_name} {user.last_name}</Text>
+                          <Text fontSize="xs" color="gray.500">{user.email}</Text>
+                        </VStack>
+                      </HStack>
+                    </VStack>
+                  )}
 
                   <VStack gap={3} align="stretch" p={4} bg="gray.50" borderRadius="md">
                     <Text fontSize="sm" color="gray.600" fontWeight="semibold">

@@ -1,45 +1,69 @@
 import './App.css'
-import { SignedIn, SignedOut, SignInButton } from '@clerk/clerk-react';
-import Home from './pages/Home';
-import { UserButton } from '@clerk/clerk-react';
+import { useState, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './features/dashboard/DashBoard';
 import Velocity from './features/velocity/VelocityChart';
 import EpicProgress from './features/epic/EpicProgress';
+import EpicProgressChart from './features/epic/EpicProgressChart';
 import TeamDashboard from './features/team/TeamDashboard';
 import SprintDashboard from './features/sprint/SprintDashboard';
 import HealthDashboard from './features/health/HealthDashboard';
 import GitLabImport from './features/import/GitLabImport';
 import NotFound from './pages/NotFound';
+import Login from './components/Login';
+import DevTokenButton from './components/DevTokenButton';
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<unknown>(null);
+
+  // Check if user is authenticated on app load
+  useEffect(() => {
+    const token = localStorage.getItem('clerk-token');
+    if (token) {
+      setIsAuthenticated(true);
+      // You could also verify the token here if needed
+    }
+  }, []);
+
+  const handleLogin = (userData: unknown) => {
+    setIsAuthenticated(true);
+    setUser(userData);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('clerk-token');
+    setIsAuthenticated(false);
+    setUser(null);
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <>
+        <Login onLogin={handleLogin} />
+        <DevTokenButton />
+      </>
+    );
+  }
+
   return (
     <>
-      <header>
-        <SignedOut>
-          <SignInButton />
-        </SignedOut>
-        <SignedIn>
-          <UserButton />
-        </SignedIn>
-      </header>
-
-      <SignedIn>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Home />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="velocity" element={<Velocity />} />
-            <Route path="epics" element={<EpicProgress />} />
-            <Route path="team" element={<TeamDashboard />} />
-            <Route path="sprint" element={<SprintDashboard />} />
-            <Route path="health" element={<HealthDashboard />} />
-            <Route path="import" element={<GitLabImport />} />
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
-      </SignedIn>
+      <Routes>
+        <Route path="/" element={<Layout onLogout={handleLogout} user={user} />}>
+          <Route index element={<Dashboard />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="velocity" element={<Velocity />} />
+          <Route path="epics" element={<EpicProgress />} />
+          <Route path="epic-chart" element={<EpicProgressChart />} />
+          <Route path="team" element={<TeamDashboard />} />
+          <Route path="sprint" element={<SprintDashboard />} />
+          <Route path="health" element={<HealthDashboard />} />
+          <Route path="import" element={<GitLabImport />} />
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
+      <DevTokenButton />
     </>
   )
 }

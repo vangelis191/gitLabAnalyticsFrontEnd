@@ -1,160 +1,179 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Heading,
-  Text,
-  VStack,
-  HStack,
-  SimpleGrid,
-  Badge,
-  Spinner,
-} from '@chakra-ui/react';
-import useApi from '../../hooks/useApi';
-import type { DashboardOverview } from '../../services/api';
+import { Box, VStack, HStack, Text, Spinner } from '@chakra-ui/react';
+import GitLabAnalyticsAPI, { type DashboardOverview } from '../../services/api';
+
+interface Activity {
+  id: number;
+  title: string;
+  assignee: string;
+  milestone_title: string;
+  state: string;
+  updated_date: string;
+}
 
 const Dashboard: React.FC = () => {
-  const api = useApi();
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
+        const result = await GitLabAnalyticsAPI.getDashboardOverview();
+        setData(result);
         setError(null);
-        const dashboardData = await api.getDashboardOverview();
-        setData(dashboardData);
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-        setError('Failed to load dashboard data. Please try again.');
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch dashboard data';
+        setError(errorMessage);
+        console.error('Dashboard fetch error:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDashboardData();
-  }, [api]);
+    fetchData();
+  }, []);
 
   if (loading) {
     return (
-      <Box textAlign="center" py={10}>
-        <Spinner size="xl" />
-        <Text mt={4}>Loading dashboard data...</Text>
+      <Box display="flex" justifyContent="center" alignItems="center" minH="400px">
+        <VStack gap="4">
+          <Spinner size="xl" color="blue.500" />
+          <Text>Loading dashboard data...</Text>
+        </VStack>
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Box p={4} bg="red.50" border="1px" borderColor="red.200" borderRadius="md">
-        <Text color="red.800" fontWeight="semibold">Error!</Text>
-        <Text color="red.700">{error}</Text>
+      <Box p="6" bg="red.50" border="1px solid" borderColor="red.200" borderRadius="md">
+        <Text color="red.600" fontWeight="medium">Error: {error}</Text>
       </Box>
     );
   }
 
   if (!data) {
     return (
-      <Box p={4} bg="blue.50" border="1px" borderColor="blue.200" borderRadius="md">
-        <Text color="blue.800" fontWeight="semibold">No Data</Text>
-        <Text color="blue.700">No dashboard data available.</Text>
+      <Box p="6" bg="yellow.50" border="1px solid" borderColor="yellow.200" borderRadius="md">
+        <Text color="yellow.600">No dashboard data available</Text>
       </Box>
     );
   }
 
-  const { summary, health_indicators } = data;
-
   return (
-    <Box p={6}>
-      <VStack gap={6} align="stretch">
-        <Box>
-          <Heading size="lg" mb={4}>Project Overview Dashboard</Heading>
-          <Text color="gray.600">Comprehensive analytics and insights for your GitLab projects</Text>
-        </Box>
+    <Box p="6">
+      <VStack gap="6" align="stretch">
+        <Text fontSize="2xl" fontWeight="bold" color="gray.800">
+          Dashboard Overview
+        </Text>
 
         {/* Summary Stats */}
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap={6}>
-          <Box p={4} bg="white" borderRadius="lg" boxShadow="md">
-            <Text fontSize="sm" color="gray.500">Total Projects</Text>
-            <Text fontSize="2xl" fontWeight="bold">{summary.total_projects}</Text>
-            <Text fontSize="xs" color="green.500">↑ 23.36%</Text>
-          </Box>
-
-          <Box p={4} bg="white" borderRadius="lg" boxShadow="md">
-            <Text fontSize="sm" color="gray.500">Total Milestones</Text>
-            <Text fontSize="2xl" fontWeight="bold">{summary.total_milestones}</Text>
-            <Text fontSize="xs" color="green.500">↑ 12.5%</Text>
-          </Box>
-
-          <Box p={4} bg="white" borderRadius="lg" boxShadow="md">
-            <Text fontSize="sm" color="gray.500">Total Epics</Text>
-            <Text fontSize="2xl" fontWeight="bold">{summary.total_epics}</Text>
-            <Text fontSize="xs" color="orange.500">↓ 8.2%</Text>
-          </Box>
-
-          <Box p={4} bg="white" borderRadius="lg" boxShadow="md">
-            <Text fontSize="sm" color="gray.500">Total Issues</Text>
-            <Text fontSize="2xl" fontWeight="bold">{summary.total_issues}</Text>
-            <Text fontSize="xs" color="green.500">↑ 15.3%</Text>
-          </Box>
-        </SimpleGrid>
-
-        {/* Progress Stats */}
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
-          <Box p={4} bg="white" borderRadius="lg" boxShadow="md">
-            <Text fontSize="sm" color="gray.500">Completion Rate</Text>
-            <Text fontSize="2xl" fontWeight="bold">{summary.overall_completion_rate.toFixed(1)}%</Text>
-            <Text fontSize="xs" color="gray.600">
-              {summary.total_closed_issues} of {summary.total_issues} issues completed
-            </Text>
-          </Box>
-
-          <Box p={4} bg="white" borderRadius="lg" boxShadow="md">
-            <Text fontSize="sm" color="gray.500">Estimation Accuracy</Text>
-            <Text fontSize="2xl" fontWeight="bold">{summary.estimation_accuracy.toFixed(1)}%</Text>
-            <Text fontSize="xs" color="gray.600">
-              {summary.total_spent_hours}h spent vs {summary.total_estimated_hours}h estimated
-            </Text>
-          </Box>
-
-          <Box p={4} bg="white" borderRadius="lg" boxShadow="md">
-            <Text fontSize="sm" color="gray.500">Total Hours</Text>
-            <Text fontSize="2xl" fontWeight="bold">{summary.total_spent_hours}</Text>
-            <Text fontSize="xs" color="gray.600">
-              {summary.total_estimated_hours}h estimated
-            </Text>
-          </Box>
-        </SimpleGrid>
+        <Box p="6" bg="white" borderRadius="lg" boxShadow="sm" border="1px solid" borderColor="gray.200">
+          <Text fontSize="lg" fontWeight="semibold" mb="4" color="gray.700">
+            Project Summary
+          </Text>
+          <VStack gap="4" align="stretch">
+            <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
+              <Text fontWeight="medium">Total Projects:</Text>
+              <Text fontWeight="bold" color="blue.600">{data.summary.total_projects}</Text>
+            </HStack>
+            <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
+              <Text fontWeight="medium">Total Milestones:</Text>
+              <Text fontWeight="bold" color="blue.600">{data.summary.total_milestones}</Text>
+            </HStack>
+            <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
+              <Text fontWeight="medium">Total Epics:</Text>
+              <Text fontWeight="bold" color="blue.600">{data.summary.total_epics}</Text>
+            </HStack>
+            <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
+              <Text fontWeight="medium">Total Issues:</Text>
+              <Text fontWeight="bold" color="blue.600">{data.summary.total_issues}</Text>
+            </HStack>
+            <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
+              <Text fontWeight="medium">Closed Issues:</Text>
+              <Text fontWeight="bold" color="green.600">{data.summary.total_closed_issues}</Text>
+            </HStack>
+            <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
+              <Text fontWeight="medium">Completion Rate:</Text>
+              <Text fontWeight="bold" color="green.600">{data.summary.overall_completion_rate.toFixed(1)}%</Text>
+            </HStack>
+            <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
+              <Text fontWeight="medium">Estimation Accuracy:</Text>
+              <Text fontWeight="bold" color="purple.600">{data.summary.estimation_accuracy.toFixed(1)}%</Text>
+            </HStack>
+            <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
+              <Text fontWeight="medium">Total Estimated Hours:</Text>
+              <Text fontWeight="bold" color="orange.600">{data.summary.total_estimated_hours}</Text>
+            </HStack>
+            <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
+              <Text fontWeight="medium">Total Spent Hours:</Text>
+              <Text fontWeight="bold" color="orange.600">{data.summary.total_spent_hours}</Text>
+            </HStack>
+          </VStack>
+        </Box>
 
         {/* Health Indicators */}
-        <Box>
-          <Heading size="md" mb={4}>Health Indicators</Heading>
-          <HStack gap={4}>
-            <Badge
-              colorScheme={health_indicators.completion_rate_status === 'good' ? 'green' : 'orange'}
-              variant="subtle"
-              px={3}
-              py={1}
-            >
-              Completion Rate: {health_indicators.completion_rate_status}
-            </Badge>
-            <Badge
-              colorScheme={health_indicators.estimation_accuracy_status === 'good' ? 'green' : 'orange'}
-              variant="subtle"
-              px={3}
-              py={1}
-            >
-              Estimation Accuracy: {health_indicators.estimation_accuracy_status}
-            </Badge>
-          </HStack>
+        <Box p="6" bg="white" borderRadius="lg" boxShadow="sm" border="1px solid" borderColor="gray.200">
+          <Text fontSize="lg" fontWeight="semibold" mb="4" color="gray.700">
+            Health Indicators
+          </Text>
+          <VStack gap="3" align="stretch">
+            <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
+              <Text fontWeight="medium">Completion Rate Status:</Text>
+              <Text 
+                fontWeight="bold" 
+                color={data.health_indicators.completion_rate_status === 'good' ? 'green.600' : 'orange.600'}
+              >
+                {data.health_indicators.completion_rate_status}
+              </Text>
+            </HStack>
+            <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
+              <Text fontWeight="medium">Estimation Accuracy Status:</Text>
+              <Text 
+                fontWeight="bold" 
+                color={data.health_indicators.estimation_accuracy_status === 'good' ? 'green.600' : 'orange.600'}
+              >
+                {data.health_indicators.estimation_accuracy_status}
+              </Text>
+            </HStack>
+          </VStack>
         </Box>
 
-        {/* Recent Activity Placeholder */}
-        <Box>
-          <Heading size="md" mb={4}>Recent Activity</Heading>
-          <Text color="gray.500">Recent activity data will be displayed here</Text>
-        </Box>
+        {/* Recent Activity */}
+        {data.recent_activity && data.recent_activity.length > 0 && (
+          <Box p="6" bg="white" borderRadius="lg" boxShadow="sm" border="1px solid" borderColor="gray.200">
+            <Text fontSize="lg" fontWeight="semibold" mb="4" color="gray.700">
+              Recent Activity
+            </Text>
+            <VStack gap="2" align="stretch">
+              {data.recent_activity.slice(0, 5).map((activity: unknown, index: number) => (
+                <Box key={index} p="3" bg="gray.50" borderRadius="md">
+                  <HStack justify="space-between">
+                    <VStack align="start" gap="1">
+                      <Text fontWeight="medium" fontSize="sm">{(activity as Activity).title}</Text>
+                      <Text fontSize="xs" color="gray.500">
+                        {(activity as Activity).assignee} • {(activity as Activity).milestone_title}
+                      </Text>
+                    </VStack>
+                    <Text 
+                      fontSize="xs" 
+                      fontWeight="medium"
+                      color={(activity as Activity).state === 'closed' ? 'green.600' : 'orange.600'}
+                      bg={(activity as Activity).state === 'closed' ? 'green.100' : 'orange.100'}
+                      px="2"
+                      py="1"
+                      borderRadius="full"
+                    >
+                      {(activity as Activity).state}
+                    </Text>
+                  </HStack>
+                </Box>
+              ))}
+            </VStack>
+          </Box>
+        )}
       </VStack>
     </Box>
   );

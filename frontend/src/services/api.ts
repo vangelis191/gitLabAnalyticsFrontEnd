@@ -381,6 +381,26 @@ export interface TokenVerification {
 
 // API Service Class
 export class GitLabAnalyticsAPI {
+  // Authentication
+  static async generateJWT(email: string, password: string): Promise<{
+    success: boolean;
+    token: string;
+    user: {
+      id: string;
+      email: string;
+      first_name: string;
+      last_name: string;
+    };
+    expires_in: number;
+    token_type: string;
+  }> {
+    const response = await apiClient.post('/auth/generate-jwt', {
+      email,
+      password
+    });
+    return response.data;
+  }
+
   // Health Check
   static async healthCheck() {
     const response = await apiClient.get('/health');
@@ -399,7 +419,11 @@ export class GitLabAnalyticsAPI {
     return response.data;
   }
 
-  static async getEpicProgress(epicId: number): Promise<EpicProgress> {
+  static async getEpicProgress(epicId: number): Promise<Array<{
+    date: string;
+    estimated: number;
+    actual: number;
+  }>> {
     const response = await apiClient.get(`/epic/progress/${epicId}`);
     return response.data;
   }
@@ -526,8 +550,13 @@ export class GitLabAnalyticsAPI {
 
   // Basic Data Endpoints
   static async getEpics(): Promise<Epic[]> {
-    const response = await apiClient.get('/epics');
-    return response.data;
+    const response = await apiClient.get('/analytics/epic-status');
+    return response.data.map((epic: { epic_id: number; epic_title: string; start_date: string; due_date: string }) => ({
+      id: epic.epic_id,
+      title: epic.epic_title,
+      start_date: epic.start_date,
+      due_date: epic.due_date,
+    }));
   }
 
   static async getMilestonesList(): Promise<Milestone[]> {

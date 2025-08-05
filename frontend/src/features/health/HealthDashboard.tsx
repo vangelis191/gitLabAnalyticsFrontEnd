@@ -8,12 +8,11 @@ import {
   SimpleGrid,
   Badge,
   Spinner,
+  Progress,
 } from '@chakra-ui/react';
-import useApi from '../../hooks/useApi';
-import type { HealthDashboard as HealthDashboardData } from '../../services/api';
+import GitLabAnalyticsAPI, { type HealthDashboard as HealthDashboardData } from '../../services/api';
 
 const HealthDashboard: React.FC = () => {
-  const api = useApi();
   const [data, setData] = useState<HealthDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,19 +23,19 @@ const HealthDashboard: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        // Fetch health dashboard data
-        const healthData = await api.getHealthDashboard();
+        const healthData = await GitLabAnalyticsAPI.getHealthDashboard();
         setData(healthData);
-      } catch (err) {
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load health data';
         console.error('Error fetching health data:', err);
-        setError('Failed to load health data. Please try again.');
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
     };
 
     fetchHealthData();
-  }, [api]);
+  }, []);
 
   if (loading) {
     return (

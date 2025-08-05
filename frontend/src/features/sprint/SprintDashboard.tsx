@@ -8,14 +8,12 @@ import {
   SimpleGrid,
   Badge,
   Spinner,
+  Progress,
 } from '@chakra-ui/react';
-import useApi from '../../hooks/useApi';
-import type { SprintDashboard as SprintDashboardData, SprintHealth } from '../../services/api';
+import GitLabAnalyticsAPI, { type SprintDashboard as SprintDashboardData } from '../../services/api';
 
 const SprintDashboard: React.FC = () => {
-  const api = useApi();
   const [data, setData] = useState<SprintDashboardData | null>(null);
-  const [sprintHealth, setSprintHealth] = useState<SprintHealth[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,29 +23,19 @@ const SprintDashboard: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        // Fetch sprint dashboard data
-        const sprintData = await api.getSprintDashboard();
+        const sprintData = await GitLabAnalyticsAPI.getSprintDashboard();
         setData(sprintData);
-        
-        // Fetch sprint health for current sprint if available
-        if (sprintData.current_sprint) {
-          try {
-            const healthData = await api.getSprintHealth(sprintData.current_sprint.id);
-            setSprintHealth([healthData]);
-          } catch (healthErr) {
-            console.warn('Could not fetch sprint health data:', healthErr);
-          }
-        }
-      } catch (err) {
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load sprint data';
         console.error('Error fetching sprint data:', err);
-        setError('Failed to load sprint data. Please try again.');
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
     };
 
     fetchSprintData();
-  }, [api]);
+  }, []);
 
   if (loading) {
     return (
@@ -102,7 +90,7 @@ const SprintDashboard: React.FC = () => {
                 </Badge>
               </HStack>
               
-              {sprintHealth.length > 0 && (
+              {/* sprintHealth.length > 0 && (
                 <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
                   <Box p={4} bg="gray.50" borderRadius="md">
                     <Text fontSize="sm" color="gray.500">Health Status</Text>
@@ -128,7 +116,7 @@ const SprintDashboard: React.FC = () => {
                     <Text fontSize="xs" color="orange.500">↓ Out of {sprintHealth[0].total_days}</Text>
                   </Box>
                 </SimpleGrid>
-              )}
+              ) */}
             </VStack>
           </Box>
         )}
@@ -224,7 +212,7 @@ const SprintDashboard: React.FC = () => {
         )}
 
         {/* Sprint Health Details */}
-        {sprintHealth.length > 0 && (
+        {/* sprintHealth.length > 0 && (
           <Box>
             <Heading size="md" mb={4}>Sprint Health Details</Heading>
             <VStack gap={3} align="stretch">
@@ -284,7 +272,7 @@ const SprintDashboard: React.FC = () => {
               </Box>
             </VStack>
           </Box>
-        )}
+        ) */}
 
         {/* Sprint Charts Placeholder */}
         <Box>

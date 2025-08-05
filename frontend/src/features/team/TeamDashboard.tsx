@@ -9,11 +9,9 @@ import {
   Badge,
   Spinner,
 } from '@chakra-ui/react';
-import useApi from '../../hooks/useApi';
-import type { TeamDashboard as TeamDashboardData, DeveloperSummary } from '../../services/api';
+import GitLabAnalyticsAPI, { type TeamDashboard as TeamDashboardData, type DeveloperSummary } from '../../services/api';
 
 const TeamDashboard: React.FC = () => {
-  const api = useApi();
   const [data, setData] = useState<TeamDashboardData | null>(null);
   const [developerSummary, setDeveloperSummary] = useState<DeveloperSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,22 +25,23 @@ const TeamDashboard: React.FC = () => {
         
         // Fetch team dashboard data and developer summary
         const [teamData, summaryData] = await Promise.all([
-          api.getTeamDashboard(),
-          api.getDeveloperSummary()
+          GitLabAnalyticsAPI.getTeamDashboard(),
+          GitLabAnalyticsAPI.getDeveloperSummary()
         ]);
         
         setData(teamData);
         setDeveloperSummary(summaryData);
-      } catch (err) {
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load team data';
         console.error('Error fetching team data:', err);
-        setError('Failed to load team data. Please try again.');
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
     };
 
     fetchTeamData();
-  }, [api]);
+  }, []);
 
   if (loading) {
     return (

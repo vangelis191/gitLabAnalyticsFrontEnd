@@ -1,205 +1,182 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Heading,
-  Text,
-  VStack,
-  HStack,
-  SimpleGrid,
-  Badge,
-  Spinner,
-} from '@chakra-ui/react';
-import useApi from '../../hooks/useApi';
-import type { VelocityStats, GitLabVelocity } from '../../services/api';
+import { Box, VStack, HStack, Text, Spinner } from '@chakra-ui/react';
+import GitLabAnalyticsAPI, { type VelocityStats, type GitLabVelocity } from '../../services/api';
+
+interface Sprint {
+  milestone_id: number;
+  title: string;
+  total_issues: number;
+  closed_issues: number;
+  velocity_hours: number;
+  avg_hours_per_issue: number;
+}
+
+interface Milestone {
+  milestone_id: number;
+  milestone_title: string;
+  total_issues: number;
+  closed_issues: number;
+  total_estimated_hours: number;
+  total_spent_hours: number;
+  velocity_estimated_hours: number;
+  velocity_spent_hours: number;
+  estimation_accuracy_percent: number;
+  avg_hours_per_issue: number;
+}
 
 const VelocityChart: React.FC = () => {
-  const api = useApi();
   const [velocityStats, setVelocityStats] = useState<VelocityStats | null>(null);
-  const [gitlabVelocity, setGitLabVelocity] = useState<GitLabVelocity[]>([]);
+  const [gitlabVelocity, setGitlabVelocity] = useState<GitLabVelocity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchVelocityData = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        setError(null);
-        
-        // Fetch both velocity stats and GitLab velocity data
-        const [statsData, gitlabData] = await Promise.all([
-          api.getVelocityStats(40), // 40 hours backlog
-          api.getGitLabVelocity()
+        const [statsResult, gitlabResult] = await Promise.all([
+          GitLabAnalyticsAPI.getVelocityStats(),
+          GitLabAnalyticsAPI.getGitLabVelocity()
         ]);
-        
-        setVelocityStats(statsData);
-        setGitLabVelocity(gitlabData);
-      } catch (err) {
-        console.error('Error fetching velocity data:', err);
-        setError('Failed to load velocity data. Please try again.');
+        setVelocityStats(statsResult);
+        setGitlabVelocity(gitlabResult);
+        setError(null);
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch velocity data';
+        setError(errorMessage);
+        console.error('Velocity fetch error:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchVelocityData();
-  }, [api]);
+    fetchData();
+  }, []);
 
   if (loading) {
     return (
-      <Box textAlign="center" py={10}>
-        <Spinner size="xl" />
-        <Text mt={4}>Loading velocity data...</Text>
+      <Box display="flex" justifyContent="center" alignItems="center" minH="400px">
+        <VStack gap="4">
+          <Spinner size="xl" color="blue.500" />
+          <Text>Loading velocity data...</Text>
+        </VStack>
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Box p={4} bg="red.50" border="1px" borderColor="red.200" borderRadius="md">
-        <Text color="red.800" fontWeight="semibold">Error!</Text>
-        <Text color="red.700">{error}</Text>
+      <Box p="6" bg="red.50" border="1px solid" borderColor="red.200" borderRadius="md">
+        <Text color="red.600" fontWeight="medium">Error: {error}</Text>
       </Box>
     );
   }
 
   return (
-    <Box p={6}>
-      <VStack gap={6} align="stretch">
-        <Box>
-          <Heading size="lg" mb={4}>Velocity Analysis</Heading>
-          <Text color="gray.600">Time-based velocity statistics using GitLab time estimates</Text>
-        </Box>
+    <Box p="6">
+      <VStack gap="6" align="stretch">
+        <Text fontSize="2xl" fontWeight="bold" color="gray.800">
+          Velocity Analysis
+        </Text>
 
-        {/* Velocity Summary Stats */}
+        {/* Velocity Stats */}
         {velocityStats && (
-          <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap={6}>
-            <Box p={4} bg="white" borderRadius="lg" boxShadow="md">
-              <Text fontSize="sm" color="gray.500">Average Velocity</Text>
-              <Text fontSize="2xl" fontWeight="bold">{velocityStats.average_velocity_hours.toFixed(1)}h</Text>
-              <Text fontSize="xs" color="green.500">↑ Per sprint</Text>
-            </Box>
-
-            <Box p={4} bg="white" borderRadius="lg" boxShadow="md">
-              <Text fontSize="sm" color="gray.500">Total Issues Closed</Text>
-              <Text fontSize="2xl" fontWeight="bold">{velocityStats.total_issues_closed}</Text>
-              <Text fontSize="xs" color="green.500">↑ Across all sprints</Text>
-            </Box>
-
-            <Box p={4} bg="white" borderRadius="lg" boxShadow="md">
-              <Text fontSize="sm" color="gray.500">Backlog Remaining</Text>
-              <Text fontSize="2xl" fontWeight="bold">{velocityStats.backlog_remaining_hours}h</Text>
-              <Text fontSize="xs" color="gray.600">Estimated hours remaining</Text>
-            </Box>
-
-            <Box p={4} bg="white" borderRadius="lg" boxShadow="md">
-              <Text fontSize="sm" color="gray.500">Sprints to Finish</Text>
-              <Text fontSize="2xl" fontWeight="bold">{velocityStats.estimated_sprints_to_finish_backlog}</Text>
-              <Text fontSize="xs" color="gray.600">Based on current velocity</Text>
-            </Box>
-          </SimpleGrid>
-        )}
-
-        {/* Sprint Velocity List */}
-        {velocityStats && velocityStats.sprints.length > 0 && (
-          <Box>
-            <Heading size="md" mb={4}>Sprint Velocity Breakdown</Heading>
-            <VStack gap={3} align="stretch">
-              {velocityStats.sprints.map((sprint) => (
-                <Box key={sprint.milestone_id} p={4} bg="white" borderRadius="lg" boxShadow="sm">
-                  <HStack justify="space-between" mb={3}>
-                    <Text fontWeight="semibold" fontSize="lg">{sprint.title}</Text>
-                    <Badge
-                      colorScheme={sprint.closed_issues === sprint.total_issues ? 'green' : 'orange'}
-                      variant="subtle"
-                    >
-                      {sprint.closed_issues === sprint.total_issues ? 'Completed' : 'In Progress'}
-                    </Badge>
-                  </HStack>
-                  
-                  <SimpleGrid columns={{ base: 2, md: 4 }} gap={4}>
-                    <Box>
-                      <Text fontSize="sm" color="gray.500">Total Issues</Text>
-                      <Text fontWeight="bold">{sprint.total_issues}</Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="sm" color="gray.500">Closed Issues</Text>
-                      <Text fontWeight="bold">{sprint.closed_issues}</Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="sm" color="gray.500">Velocity (Hours)</Text>
-                      <Text fontWeight="bold">{sprint.velocity_hours.toFixed(1)}h</Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="sm" color="gray.500">Avg Hours/Issue</Text>
-                      <Text fontWeight="bold">{sprint.avg_hours_per_issue.toFixed(1)}h</Text>
-                    </Box>
-                  </SimpleGrid>
-                </Box>
-              ))}
-            </VStack>
-          </Box>
-        )}
-
-        {/* GitLab Time-Based Velocity */}
-        {gitlabVelocity.length > 0 && (
-          <Box>
-            <Heading size="md" mb={4}>GitLab Time-Based Velocity</Heading>
-            <VStack gap={3} align="stretch">
-              {gitlabVelocity.map((sprint) => (
-                <Box key={sprint.milestone_id} p={4} bg="white" borderRadius="lg" boxShadow="sm">
-                  <HStack justify="space-between" mb={3}>
-                    <Text fontWeight="semibold" fontSize="lg">{sprint.milestone_title}</Text>
-                    <Badge
-                      colorScheme={sprint.estimation_accuracy_percent >= 90 ? 'green' : 'orange'}
-                      variant="subtle"
-                    >
-                      {sprint.estimation_accuracy_percent.toFixed(1)}% Accuracy
-                    </Badge>
-                  </HStack>
-                  
-                  <SimpleGrid columns={{ base: 2, md: 4 }} gap={4}>
-                    <Box>
-                      <Text fontSize="sm" color="gray.500">Estimated Hours</Text>
-                      <Text fontWeight="bold">{sprint.total_estimated_hours.toFixed(1)}h</Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="sm" color="gray.500">Spent Hours</Text>
-                      <Text fontWeight="bold">{sprint.total_spent_hours.toFixed(1)}h</Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="sm" color="gray.500">Estimation Accuracy</Text>
-                      <Text fontWeight="bold" color={sprint.estimation_accuracy_percent >= 90 ? 'green.500' : 'orange.500'}>
-                        {sprint.estimation_accuracy_percent.toFixed(1)}%
-                      </Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="sm" color="gray.500">Avg Hours/Issue</Text>
-                      <Text fontWeight="bold">{sprint.avg_hours_per_issue.toFixed(1)}h</Text>
-                    </Box>
-                  </SimpleGrid>
-                </Box>
-              ))}
-            </VStack>
-          </Box>
-        )}
-
-        {/* Chart Placeholder */}
-        <Box>
-          <Heading size="md" mb={4}>Velocity Chart</Heading>
-          <Box
-            bg="gray.50"
-            p={8}
-            borderRadius="lg"
-            textAlign="center"
-            border="2px dashed"
-            borderColor="gray.200"
-          >
-            <Text color="gray.500">Velocity chart visualization will be displayed here</Text>
-            <Text fontSize="sm" color="gray.400" mt={2}>
-              Chart data will be rendered using the velocity chart endpoint
+          <Box p="6" bg="white" borderRadius="lg" boxShadow="sm" border="1px solid" borderColor="gray.200">
+            <Text fontSize="lg" fontWeight="semibold" mb="4" color="gray.700">
+              Velocity Statistics
             </Text>
+            <VStack gap="4" align="stretch">
+              <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
+                <Text fontWeight="medium">Total Issues Closed:</Text>
+                <Text fontWeight="bold" color="green.600">{velocityStats.total_issues_closed}</Text>
+              </HStack>
+              <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
+                <Text fontWeight="medium">Average Velocity (Hours):</Text>
+                <Text fontWeight="bold" color="blue.600">{velocityStats.average_velocity_hours.toFixed(1)}</Text>
+              </HStack>
+              <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
+                <Text fontWeight="medium">Backlog Remaining (Hours):</Text>
+                <Text fontWeight="bold" color="orange.600">{velocityStats.backlog_remaining_hours}</Text>
+              </HStack>
+              <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
+                <Text fontWeight="medium">Estimated Sprints to Finish:</Text>
+                <Text fontWeight="bold" color="purple.600">{velocityStats.estimated_sprints_to_finish_backlog.toFixed(1)}</Text>
+              </HStack>
+            </VStack>
           </Box>
-        </Box>
+        )}
+
+        {/* Sprint Details */}
+        {velocityStats && velocityStats.sprints && velocityStats.sprints.length > 0 && (
+          <Box p="6" bg="white" borderRadius="lg" boxShadow="sm" border="1px solid" borderColor="gray.200">
+            <Text fontSize="lg" fontWeight="semibold" mb="4" color="gray.700">
+              Sprint Details
+            </Text>
+            <VStack gap="3" align="stretch">
+              {velocityStats.sprints.map((sprint: Sprint, index: number) => (
+                <Box key={index} p="4" bg="gray.50" borderRadius="md">
+                  <VStack align="stretch" gap="2">
+                    <Text fontWeight="semibold" color="gray.800">{sprint.title}</Text>
+                    <HStack justify="space-between">
+                      <Text fontSize="sm">Issues: {sprint.closed_issues}/{sprint.total_issues}</Text>
+                      <Text fontSize="sm" color="green.600">
+                        {((sprint.closed_issues / sprint.total_issues) * 100).toFixed(1)}%
+                      </Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontSize="sm">Velocity Hours:</Text>
+                      <Text fontSize="sm" fontWeight="medium" color="blue.600">{sprint.velocity_hours}</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontSize="sm">Avg Hours per Issue:</Text>
+                      <Text fontSize="sm" fontWeight="medium" color="purple.600">{sprint.avg_hours_per_issue.toFixed(1)}</Text>
+                    </HStack>
+                  </VStack>
+                </Box>
+              ))}
+            </VStack>
+          </Box>
+        )}
+
+        {/* GitLab Velocity */}
+        {gitlabVelocity && gitlabVelocity.length > 0 && (
+          <Box p="6" bg="white" borderRadius="lg" boxShadow="sm" border="1px solid" borderColor="gray.200">
+            <Text fontSize="lg" fontWeight="semibold" mb="4" color="gray.700">
+              GitLab Velocity Details
+            </Text>
+            <VStack gap="3" align="stretch">
+              {gitlabVelocity.map((milestone: Milestone, index: number) => (
+                <Box key={index} p="4" bg="gray.50" borderRadius="md">
+                  <VStack align="stretch" gap="2">
+                    <Text fontWeight="semibold" color="gray.800">{milestone.milestone_title}</Text>
+                    <HStack justify="space-between">
+                      <Text fontSize="sm">Issues: {milestone.closed_issues}/{milestone.total_issues}</Text>
+                      <Text fontSize="sm" color="green.600">
+                        {((milestone.closed_issues / milestone.total_issues) * 100).toFixed(1)}%
+                      </Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontSize="sm">Estimated Hours:</Text>
+                      <Text fontSize="sm" fontWeight="medium" color="blue.600">{milestone.total_estimated_hours}</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontSize="sm">Spent Hours:</Text>
+                      <Text fontSize="sm" fontWeight="medium" color="orange.600">{milestone.total_spent_hours}</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontSize="sm">Estimation Accuracy:</Text>
+                      <Text fontSize="sm" fontWeight="medium" color="purple.600">{milestone.estimation_accuracy_percent.toFixed(1)}%</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontSize="sm">Avg Hours per Issue:</Text>
+                      <Text fontSize="sm" fontWeight="medium" color="teal.600">{milestone.avg_hours_per_issue.toFixed(1)}</Text>
+                    </HStack>
+                  </VStack>
+                </Box>
+              ))}
+            </VStack>
+          </Box>
+        )}
       </VStack>
     </Box>
   );
