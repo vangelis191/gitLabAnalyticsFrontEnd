@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, VStack, HStack, Text, Spinner } from '@chakra-ui/react';
 import GitLabAnalyticsAPI, { type VelocityStats, type GitLabVelocity } from '../../services/api';
+import { useProject } from '../../contexts/ProjectContext';
 
 interface Sprint {
   milestone_id: number;
@@ -25,6 +26,7 @@ interface Milestone {
 }
 
 const VelocityChart: React.FC = () => {
+  const { selectedProject } = useProject();
   const [velocityStats, setVelocityStats] = useState<VelocityStats | null>(null);
   const [gitlabVelocity, setGitlabVelocity] = useState<GitLabVelocity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,8 +37,8 @@ const VelocityChart: React.FC = () => {
       try {
         setLoading(true);
         const [statsResult, gitlabResult] = await Promise.all([
-          GitLabAnalyticsAPI.getVelocityStats(),
-          GitLabAnalyticsAPI.getGitLabVelocity()
+          GitLabAnalyticsAPI.getVelocityStats(undefined, selectedProject?.id),
+          GitLabAnalyticsAPI.getGitLabVelocity(selectedProject?.id)
         ]);
         setVelocityStats(statsResult);
         setGitlabVelocity(gitlabResult);
@@ -50,8 +52,18 @@ const VelocityChart: React.FC = () => {
       }
     };
 
-    fetchData();
-  }, []);
+    if (selectedProject) {
+      fetchData();
+    }
+  }, [selectedProject]);
+
+  if (!selectedProject) {
+    return (
+      <Box p="6" bg="yellow.50" border="1px solid" borderColor="yellow.200" borderRadius="md">
+        <Text color="yellow.600">Please select a project to view velocity data</Text>
+      </Box>
+    );
+  }
 
   if (loading) {
     return (
@@ -92,7 +104,7 @@ const VelocityChart: React.FC = () => {
               </HStack>
               <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
                 <Text fontWeight="medium">Average Velocity (Hours):</Text>
-                <Text fontWeight="bold" color="blue.600">{velocityStats.average_velocity_hours.toFixed(1)}</Text>
+                <Text fontWeight="bold" color="blue.600">{velocityStats.average_velocity_hours?.toFixed(1) || '0.0'}</Text>
               </HStack>
               <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
                 <Text fontWeight="medium">Backlog Remaining (Hours):</Text>
@@ -100,7 +112,7 @@ const VelocityChart: React.FC = () => {
               </HStack>
               <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
                 <Text fontWeight="medium">Estimated Sprints to Finish:</Text>
-                <Text fontWeight="bold" color="purple.600">{velocityStats.estimated_sprints_to_finish_backlog.toFixed(1)}</Text>
+                <Text fontWeight="bold" color="purple.600">{velocityStats.estimated_sprints_to_finish_backlog?.toFixed(1) || '0.0'}</Text>
               </HStack>
             </VStack>
           </Box>
@@ -120,7 +132,7 @@ const VelocityChart: React.FC = () => {
                     <HStack justify="space-between">
                       <Text fontSize="sm">Issues: {sprint.closed_issues}/{sprint.total_issues}</Text>
                       <Text fontSize="sm" color="green.600">
-                        {((sprint.closed_issues / sprint.total_issues) * 100).toFixed(1)}%
+                        {sprint.total_issues > 0 ? ((sprint.closed_issues / sprint.total_issues) * 100).toFixed(1) : '0.0'}%
                       </Text>
                     </HStack>
                     <HStack justify="space-between">
@@ -129,7 +141,7 @@ const VelocityChart: React.FC = () => {
                     </HStack>
                     <HStack justify="space-between">
                       <Text fontSize="sm">Avg Hours per Issue:</Text>
-                      <Text fontSize="sm" fontWeight="medium" color="purple.600">{sprint.avg_hours_per_issue.toFixed(1)}</Text>
+                      <Text fontSize="sm" fontWeight="medium" color="purple.600">{sprint.avg_hours_per_issue?.toFixed(1) || '0.0'}</Text>
                     </HStack>
                   </VStack>
                 </Box>
@@ -152,7 +164,7 @@ const VelocityChart: React.FC = () => {
                     <HStack justify="space-between">
                       <Text fontSize="sm">Issues: {milestone.closed_issues}/{milestone.total_issues}</Text>
                       <Text fontSize="sm" color="green.600">
-                        {((milestone.closed_issues / milestone.total_issues) * 100).toFixed(1)}%
+                        {milestone.total_issues > 0 ? ((milestone.closed_issues / milestone.total_issues) * 100).toFixed(1) : '0.0'}%
                       </Text>
                     </HStack>
                     <HStack justify="space-between">
@@ -165,11 +177,11 @@ const VelocityChart: React.FC = () => {
                     </HStack>
                     <HStack justify="space-between">
                       <Text fontSize="sm">Estimation Accuracy:</Text>
-                      <Text fontSize="sm" fontWeight="medium" color="purple.600">{milestone.estimation_accuracy_percent.toFixed(1)}%</Text>
+                      <Text fontSize="sm" fontWeight="medium" color="purple.600">{milestone.estimation_accuracy_percent?.toFixed(1) || '0.0'}%</Text>
                     </HStack>
                     <HStack justify="space-between">
                       <Text fontSize="sm">Avg Hours per Issue:</Text>
-                      <Text fontSize="sm" fontWeight="medium" color="teal.600">{milestone.avg_hours_per_issue.toFixed(1)}</Text>
+                      <Text fontSize="sm" fontWeight="medium" color="teal.600">{milestone.avg_hours_per_issue?.toFixed(1) || '0.0'}</Text>
                     </HStack>
                   </VStack>
                 </Box>

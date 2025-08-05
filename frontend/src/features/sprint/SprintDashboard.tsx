@@ -8,11 +8,12 @@ import {
   SimpleGrid,
   Badge,
   Spinner,
-  Progress,
 } from '@chakra-ui/react';
 import GitLabAnalyticsAPI, { type SprintDashboard as SprintDashboardData } from '../../services/api';
+import { useProject } from '../../contexts/ProjectContext';
 
 const SprintDashboard: React.FC = () => {
+  const { selectedProject } = useProject();
   const [data, setData] = useState<SprintDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +24,7 @@ const SprintDashboard: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        const sprintData = await GitLabAnalyticsAPI.getSprintDashboard();
+        const sprintData = await GitLabAnalyticsAPI.getSprintDashboard(selectedProject?.id);
         setData(sprintData);
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load sprint data';
@@ -34,8 +35,18 @@ const SprintDashboard: React.FC = () => {
       }
     };
 
-    fetchSprintData();
-  }, []);
+    if (selectedProject) {
+      fetchSprintData();
+    }
+  }, [selectedProject]);
+
+  if (!selectedProject) {
+    return (
+      <Box p={6} bg="yellow.50" border="1px solid" borderColor="yellow.200" borderRadius="md">
+        <Text color="yellow.600">Please select a project to view sprint data</Text>
+      </Box>
+    );
+  }
 
   if (loading) {
     return (
@@ -106,7 +117,7 @@ const SprintDashboard: React.FC = () => {
                   
                   <Box p={4} bg="gray.50" borderRadius="md">
                     <Text fontSize="sm" color="gray.500">Completion Rate</Text>
-                    <Text fontSize="lg" fontWeight="bold">{sprintHealth[0].completion_rate_percent.toFixed(1)}%</Text>
+                    <Text fontSize="lg" fontWeight="bold">{sprintHealth[0]?.completion_rate_percent?.toFixed(1) || '0.0'}%</Text>
                     <Text fontSize="xs" color="green.500">↑ Progress</Text>
                   </Box>
                   
@@ -127,7 +138,7 @@ const SprintDashboard: React.FC = () => {
           <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
             <Box p={4} bg="white" borderRadius="lg" boxShadow="md">
               <Text fontSize="sm" color="gray.500">Average Velocity</Text>
-              <Text fontSize="2xl" fontWeight="bold">{velocity_summary.average_velocity_hours.toFixed(1)}h</Text>
+              <Text fontSize="2xl" fontWeight="bold">{velocity_summary.average_velocity_hours?.toFixed(1) || '0.0'}h</Text>
               <Text fontSize="xs" color="green.500">↑ Per sprint</Text>
             </Box>
 
@@ -145,7 +156,7 @@ const SprintDashboard: React.FC = () => {
           <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
             <Box p={4} bg="white" borderRadius="lg" boxShadow="md">
               <Text fontSize="sm" color="gray.500">Defect Rate</Text>
-              <Text fontSize="2xl" fontWeight="bold">{defect_summary.defect_rate_percent.toFixed(1)}%</Text>
+              <Text fontSize="2xl" fontWeight="bold">{defect_summary.defect_rate_percent?.toFixed(1) || '0.0'}%</Text>
               <Text fontSize="xs" color="orange.500">↓ Of total issues</Text>
             </Box>
 
@@ -240,7 +251,7 @@ const SprintDashboard: React.FC = () => {
                 <HStack justify="space-between">
                   <Text fontWeight="medium">Estimated Hours</Text>
                   <HStack gap={2}>
-                    <Text fontWeight="bold">{sprintHealth[0].total_estimated_hours.toFixed(1)}h</Text>
+                    <Text fontWeight="bold">{sprintHealth[0]?.total_estimated_hours?.toFixed(1) || '0.0'}h</Text>
                     <Badge colorScheme="blue" variant="subtle">Planned</Badge>
                   </HStack>
                 </HStack>
@@ -250,7 +261,7 @@ const SprintDashboard: React.FC = () => {
                 <HStack justify="space-between">
                   <Text fontWeight="medium">Spent Hours</Text>
                   <HStack gap={2}>
-                    <Text fontWeight="bold">{sprintHealth[0].total_spent_hours.toFixed(1)}h</Text>
+                    <Text fontWeight="bold">{sprintHealth[0]?.total_spent_hours?.toFixed(1) || '0.0'}h</Text>
                     <Badge colorScheme="orange" variant="subtle">Actual</Badge>
                   </HStack>
                 </HStack>
@@ -260,13 +271,13 @@ const SprintDashboard: React.FC = () => {
                 <HStack justify="space-between">
                   <Text fontWeight="medium">Estimation Accuracy</Text>
                   <HStack gap={2}>
-                    <Text fontWeight="bold">{sprintHealth[0].estimation_accuracy_percent.toFixed(1)}%</Text>
-                    <Badge
-                      colorScheme={sprintHealth[0].estimation_accuracy_percent >= 90 ? 'green' : 'orange'}
-                      variant="subtle"
-                    >
-                      {sprintHealth[0].estimation_accuracy_percent >= 90 ? 'Good' : 'Needs Improvement'}
-                    </Badge>
+                    <Text fontWeight="bold">{sprintHealth[0]?.estimation_accuracy_percent?.toFixed(1) || '0.0'}%</Text>
+                                          <Badge
+                        colorScheme={(sprintHealth[0]?.estimation_accuracy_percent || 0) >= 90 ? 'green' : 'orange'}
+                        variant="subtle"
+                      >
+                        {(sprintHealth[0]?.estimation_accuracy_percent || 0) >= 90 ? 'Good' : 'Needs Improvement'}
+                      </Badge>
                   </HStack>
                 </HStack>
               </Box>

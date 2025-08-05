@@ -10,8 +10,10 @@ import {
   Spinner,
 } from '@chakra-ui/react';
 import GitLabAnalyticsAPI, { type TeamDashboard as TeamDashboardData, type DeveloperSummary } from '../../services/api';
+import { useProject } from '../../contexts/ProjectContext';
 
 const TeamDashboard: React.FC = () => {
+  const { selectedProject } = useProject();
   const [data, setData] = useState<TeamDashboardData | null>(null);
   const [developerSummary, setDeveloperSummary] = useState<DeveloperSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,8 +27,8 @@ const TeamDashboard: React.FC = () => {
         
         // Fetch team dashboard data and developer summary
         const [teamData, summaryData] = await Promise.all([
-          GitLabAnalyticsAPI.getTeamDashboard(),
-          GitLabAnalyticsAPI.getDeveloperSummary()
+          GitLabAnalyticsAPI.getTeamDashboard(selectedProject?.id),
+          GitLabAnalyticsAPI.getDeveloperSummary(selectedProject?.id)
         ]);
         
         setData(teamData);
@@ -40,8 +42,18 @@ const TeamDashboard: React.FC = () => {
       }
     };
 
-    fetchTeamData();
-  }, []);
+    if (selectedProject) {
+      fetchTeamData();
+    }
+  }, [selectedProject]);
+
+  if (!selectedProject) {
+    return (
+      <Box p={6} bg="yellow.50" border="1px solid" borderColor="yellow.200" borderRadius="md">
+        <Text color="yellow.600">Please select a project to view team data</Text>
+      </Box>
+    );
+  }
 
   if (loading) {
     return (
@@ -150,22 +162,22 @@ const TeamDashboard: React.FC = () => {
                     </Box>
                     <Box>
                       <Text fontSize="sm" color="gray.500">Velocity</Text>
-                      <Text fontWeight="bold">{member.velocity_hours.toFixed(1)}h</Text>
+                      <Text fontWeight="bold">{member.velocity_hours?.toFixed(1) || '0.0'}h</Text>
                     </Box>
                     <Box>
                       <Text fontSize="sm" color="gray.500">Completion Rate</Text>
-                      <Text fontWeight="bold" color={member.completion_rate >= 80 ? 'green.500' : 'orange.500'}>
-                        {member.completion_rate.toFixed(1)}%
+                      <Text fontWeight="bold" color={(member.completion_rate || 0) >= 80 ? 'green.500' : 'orange.500'}>
+                        {member.completion_rate?.toFixed(1) || '0.0'}%
                       </Text>
                     </Box>
                   </SimpleGrid>
                   
                   <HStack gap={4} mt={2}>
                     <Text fontSize="sm" color="gray.600">
-                      Estimated: {member.total_estimated_hours.toFixed(1)}h
+                      Estimated: {member.total_estimated_hours?.toFixed(1) || '0.0'}h
                     </Text>
                     <Text fontSize="sm" color="gray.600">
-                      Spent: {member.total_spent_hours.toFixed(1)}h
+                      Spent: {member.total_spent_hours?.toFixed(1) || '0.0'}h
                     </Text>
                   </HStack>
                 </Box>
@@ -202,8 +214,8 @@ const TeamDashboard: React.FC = () => {
                     </Box>
                     <Box>
                       <Text fontSize="sm" color="gray.500">Progress</Text>
-                      <Text fontWeight="bold" color={dev.progress_percent >= 80 ? 'green.500' : 'orange.500'}>
-                        {dev.progress_percent.toFixed(1)}%
+                      <Text fontWeight="bold" color={(dev.progress_percent || 0) >= 80 ? 'green.500' : 'orange.500'}>
+                        {dev.progress_percent?.toFixed(1) || '0.0'}%
                       </Text>
                     </Box>
                   </SimpleGrid>

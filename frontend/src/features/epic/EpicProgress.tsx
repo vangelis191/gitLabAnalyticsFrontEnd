@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, VStack, HStack, Text, Spinner } from '@chakra-ui/react';
 import GitLabAnalyticsAPI, { type EpicSuccess, type EpicStatus, type Epic } from '../../services/api';
+import { useProject } from '../../contexts/ProjectContext';
 
 interface EpicSuccessItem {
   epic_id: number;
@@ -18,6 +19,7 @@ interface MilestoneItem {
 }
 
 const EpicProgress: React.FC = () => {
+  const { selectedProject } = useProject();
   const [epicSuccess, setEpicSuccess] = useState<EpicSuccess[]>([]);
   const [epicStatus, setEpicStatus] = useState<EpicStatus | null>(null);
   const [epics, setEpics] = useState<Epic[]>([]);
@@ -29,12 +31,12 @@ const EpicProgress: React.FC = () => {
       try {
         setLoading(true);
         const [successResult, statusResult, epicsResult] = await Promise.all([
-          GitLabAnalyticsAPI.getEpicSuccess(),
-          GitLabAnalyticsAPI.getEpicStatus(),
-          GitLabAnalyticsAPI.getEpics()
+          GitLabAnalyticsAPI.getEpicSuccess(selectedProject?.id),
+          GitLabAnalyticsAPI.getEpicStatus(selectedProject?.id),
+          GitLabAnalyticsAPI.getEpics(selectedProject?.id)
         ]);
         setEpicSuccess(successResult);
-        setEpicStatus(statusResult);
+        setEpicStatus(statusResult.length > 0 ? statusResult[0] : null);
         setEpics(epicsResult);
         setError(null);
       } catch (err: unknown) {
@@ -46,8 +48,18 @@ const EpicProgress: React.FC = () => {
       }
     };
 
-    fetchData();
-  }, []);
+    if (selectedProject) {
+      fetchData();
+    }
+  }, [selectedProject]);
+
+  if (!selectedProject) {
+    return (
+      <Box p="6" bg="yellow.50" border="1px solid" borderColor="yellow.200" borderRadius="md">
+        <Text color="yellow.600">Please select a project to view epic data</Text>
+      </Box>
+    );
+  }
 
   if (loading) {
     return (

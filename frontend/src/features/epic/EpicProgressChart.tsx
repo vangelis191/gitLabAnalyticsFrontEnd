@@ -20,6 +20,7 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import GitLabAnalyticsAPI, { type EpicStatus } from '../../services/api';
+import { useProject } from '../../contexts/ProjectContext';
 
 // Register Chart.js components
 ChartJS.register(
@@ -46,6 +47,7 @@ interface Epic {
 }
 
 const EpicProgressChart: React.FC = () => {
+  const { selectedProject } = useProject();
   const [epics, setEpics] = useState<Epic[]>([]);
   const [selectedEpicId, setSelectedEpicId] = useState<number | null>(null);
   const [progressData, setProgressData] = useState<EpicProgressData[]>([]);
@@ -57,7 +59,7 @@ const EpicProgressChart: React.FC = () => {
   useEffect(() => {
     const fetchEpics = async () => {
       try {
-        const epicsData = await GitLabAnalyticsAPI.getEpics();
+        const epicsData = await GitLabAnalyticsAPI.getEpics(selectedProject?.id);
         setEpics(epicsData);
         if (epicsData.length > 0) {
           setSelectedEpicId(epicsData[0].id);
@@ -70,8 +72,10 @@ const EpicProgressChart: React.FC = () => {
       }
     };
 
-    fetchEpics();
-  }, []);
+    if (selectedProject) {
+      fetchEpics();
+    }
+  }, [selectedProject]);
 
   // Fetch progress data when epic is selected
   useEffect(() => {
@@ -81,8 +85,8 @@ const EpicProgressChart: React.FC = () => {
       try {
         setLoading(true);
         const [data, allEpicStatus] = await Promise.all([
-          GitLabAnalyticsAPI.getEpicProgress(selectedEpicId),
-          GitLabAnalyticsAPI.getEpicStatus()
+          GitLabAnalyticsAPI.getEpicProgress(selectedEpicId, selectedProject?.id),
+          GitLabAnalyticsAPI.getEpicStatus(selectedProject?.id)
         ]);
         
         setProgressData(data);
@@ -100,8 +104,10 @@ const EpicProgressChart: React.FC = () => {
       }
     };
 
-    fetchProgressData();
-  }, [selectedEpicId]);
+    if (selectedProject && selectedEpicId) {
+      fetchProgressData();
+    }
+  }, [selectedEpicId, selectedProject]);
 
   const selectedEpic = epics.find(epic => epic.id === selectedEpicId);
 
@@ -140,6 +146,14 @@ const EpicProgressChart: React.FC = () => {
     return (
       <Box p="6" bg="yellow.50" border="1px solid" borderColor="yellow.200" borderRadius="md">
         <Text color="yellow.600">No epics available</Text>
+      </Box>
+    );
+  }
+
+  if (!selectedProject) {
+    return (
+      <Box p="6" bg="yellow.50" border="1px solid" borderColor="yellow.200" borderRadius="md">
+        <Text color="yellow.600">Please select a project to view epic progress data</Text>
       </Box>
     );
   }
@@ -190,11 +204,11 @@ const EpicProgressChart: React.FC = () => {
             <VStack gap="2" align="stretch">
               <HStack justify="space-between">
                 <Text fontSize="sm" color="gray.600">Current Progress:</Text>
-                <Text fontWeight="bold" color="blue.600">{currentProgress.toFixed(1)}%</Text>
+                <Text fontWeight="bold" color="blue.600">{currentProgress?.toFixed(1) || '0.0'}%</Text>
               </HStack>
               <HStack justify="space-between">
                 <Text fontSize="sm" color="gray.600">Estimated Progress:</Text>
-                <Text fontWeight="bold" color="green.600">{estimatedProgress.toFixed(1)}%</Text>
+                <Text fontWeight="bold" color="green.600">{estimatedProgress?.toFixed(1) || '0.0'}%</Text>
               </HStack>
               <HStack justify="space-between">
                 <Text fontSize="sm" color="gray.600">Variance:</Text>
@@ -202,7 +216,7 @@ const EpicProgressChart: React.FC = () => {
                   fontWeight="bold" 
                   color={isAheadOfSchedule ? 'green.600' : 'orange.600'}
                 >
-                  {(currentProgress - estimatedProgress).toFixed(1)}%
+                  {((currentProgress || 0) - (estimatedProgress || 0)).toFixed(1)}%
                 </Text>
               </HStack>
             </VStack>
@@ -220,7 +234,7 @@ const EpicProgressChart: React.FC = () => {
                   <Text fontSize="sm" color="gray.600">Average Daily Progress:</Text>
                   <Text fontWeight="bold" color="blue.600">
                     {progressData.length > 1 
-                      ? ((progressData[progressData.length - 1].actual - progressData[0].actual) / (progressData.length - 1)).toFixed(1)
+                      ? (((progressData[progressData.length - 1]?.actual || 0) - (progressData[0]?.actual || 0)) / (progressData.length - 1)).toFixed(1)
                       : '0.0'}% per day
                   </Text>
                 </HStack>
@@ -352,7 +366,7 @@ const EpicProgressChart: React.FC = () => {
                           borderColor="gray.300"
                         />
                         <Text fontSize="xs">
-                          {milestone.title} ({milestone.progress_percent.toFixed(1)}%)
+                          {milestone.title} ({milestone.progress_percent?.toFixed(1) || '0.0'}%)
                         </Text>
                         <Badge 
                           size="xs" 

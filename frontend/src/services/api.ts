@@ -379,6 +379,33 @@ export interface TokenVerification {
   };
 }
 
+export interface Project {
+  id: number;
+  name: string;
+  milestone_count: number;
+  epic_count: number;
+  issue_count: number;
+}
+
+export interface ProjectMilestone {
+  id: number;
+  title: string;
+  start_date: string;
+  due_date: string;
+  project_id: number;
+  issue_count: number;
+  closed_issue_count: number;
+}
+
+export interface ProjectEpic {
+  id: number;
+  title: string;
+  start_date: string;
+  due_date: string;
+  project_id: number;
+  milestone_count: number;
+}
+
 // API Service Class
 export class GitLabAnalyticsAPI {
   // Authentication
@@ -408,155 +435,200 @@ export class GitLabAnalyticsAPI {
   }
 
   // Core Analytics
-  static async getVelocityStats(backlog?: number): Promise<VelocityStats> {
-    const params = backlog ? { backlog } : {};
-    const response = await apiClient.get('/analytics/velocity/stats', { params });
+  static async getVelocityStats(backlog?: number, projectId?: number): Promise<VelocityStats> {
+    const params: any = {};
+    if (backlog) params.backlog = backlog;
+    if (projectId) params.project_id = projectId;
+    const response = await apiClient.get('/analytics/velocity-stats', { params });
     return response.data;
   }
 
-  static async getVelocityChart(): Promise<VelocityChart> {
-    const response = await apiClient.get('/analytics/velocity/chart');
+  static async getVelocityChart(projectId?: number): Promise<VelocityChart> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/velocity-chart', { params });
     return response.data;
   }
 
-  static async getEpicProgress(epicId: number): Promise<Array<{
+  static async getEpicProgress(epicId: number, projectId?: number): Promise<Array<{
     date: string;
     estimated: number;
     actual: number;
   }>> {
-    const response = await apiClient.get(`/epic/progress/${epicId}`);
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get(`/analytics/epic-progress/${epicId}`, { params });
     return response.data;
   }
 
   static async checkPeriodSuccess(
     epicId: number,
     fromDate: string,
-    toDate: string
+    toDate: string,
+    projectId?: number
   ): Promise<PeriodSuccess> {
-    const params = { epic_id: epicId, from_date: fromDate, to_date: toDate };
-    const response = await apiClient.get('/analytics/is-period-successful', { params });
+    const params: any = { from_date: fromDate, to_date: toDate };
+    if (projectId) params.project_id = projectId;
+    const response = await apiClient.get(`/analytics/period-success/${epicId}`, { params });
     return response.data;
   }
 
-  static async getEpicSuccess(): Promise<EpicSuccess[]> {
-    const response = await apiClient.get('/analytics/epic-success');
+  static async getEpicSuccess(projectId?: number): Promise<EpicSuccess[]> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/epic-success', { params });
     return response.data;
   }
 
-  static async getDeveloperSuccess(): Promise<DeveloperSuccess[]> {
-    const response = await apiClient.get('/analytics/developer-success');
+  static async getDeveloperSuccess(projectId?: number): Promise<DeveloperSuccess[]> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/developer-success', { params });
     return response.data;
   }
 
-  static async getDeveloperSummary(): Promise<DeveloperSummary[]> {
-    const response = await apiClient.get('/analytics/developer-summary');
+  static async getDeveloperSummary(projectId?: number): Promise<DeveloperSummary[]> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/developer-summary', { params });
     return response.data;
   }
 
-  static async getEpicStatus(): Promise<EpicStatus[]> {
-    const response = await apiClient.get('/analytics/epic-status');
+  static async getEpicStatus(projectId?: number): Promise<EpicStatus[]> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/epic-status', { params });
     return response.data;
   }
 
-  static async getMilestones(): Promise<Milestone[]> {
-    const response = await apiClient.get('/analytics/milestones');
+  static async getMilestones(projectId?: number): Promise<Milestone[]> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/milestones', { params });
     return response.data;
   }
 
-  static async getMilestoneSuccess(): Promise<MilestoneSuccess[]> {
-    const response = await apiClient.get('/analytics/milestone-success');
+  static async getMilestoneSuccess(projectId?: number): Promise<MilestoneSuccess[]> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/milestone-success', { params });
     return response.data;
   }
 
   // GitLab Time-Based Analytics
-  static async getGitLabVelocity(): Promise<GitLabVelocity[]> {
-    const response = await apiClient.get('/analytics/gitlab/velocity');
+  static async getGitLabVelocity(projectId?: number): Promise<GitLabVelocity[]> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/gitlab-velocity', { params });
     return response.data;
   }
 
-  static async getTeamCapacity(): Promise<TeamCapacity[]> {
-    const response = await apiClient.get('/analytics/gitlab/team-capacity');
+  static async getTeamCapacity(projectId?: number): Promise<TeamCapacity[]> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/team-capacity', { params });
     return response.data;
   }
 
-  static async getIssueTypeAnalysis(): Promise<IssueTypeAnalysis[]> {
-    const response = await apiClient.get('/analytics/gitlab/issue-types');
+  static async getIssueTypeAnalysis(projectId?: number): Promise<IssueTypeAnalysis[]> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/issue-type-analysis', { params });
     return response.data;
   }
 
-  static async getPriorityAnalysis(): Promise<PriorityAnalysis[]> {
-    const response = await apiClient.get('/analytics/gitlab/priorities');
+  static async getPriorityAnalysis(projectId?: number): Promise<PriorityAnalysis[]> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/priority-analysis', { params });
     return response.data;
   }
 
-  static async getBurndownData(milestoneId: number): Promise<BurndownData> {
-    const response = await apiClient.get(`/analytics/gitlab/burndown/${milestoneId}`);
+  static async getBurndownData(milestoneId: number, projectId?: number): Promise<BurndownData> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get(`/analytics/burndown/${milestoneId}`, { params });
     return response.data;
   }
 
   // Advanced Analytics
-  static async getLeadTimeAnalysis(): Promise<LeadTimeAnalysis> {
-    const response = await apiClient.get('/analytics/lead-time');
+  static async getLeadTimeAnalysis(projectId?: number): Promise<LeadTimeAnalysis> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/lead-time', { params });
     return response.data;
   }
 
-  static async getThroughputAnalysis(days?: number): Promise<ThroughputAnalysis> {
-    const params = days ? { days } : {};
+  static async getThroughputAnalysis(days?: number, projectId?: number): Promise<ThroughputAnalysis> {
+    const params: any = {};
+    if (days) params.days = days;
+    if (projectId) params.project_id = projectId;
     const response = await apiClient.get('/analytics/throughput', { params });
     return response.data;
   }
 
-  static async getDefectRateAnalysis(): Promise<DefectRateAnalysis> {
-    const response = await apiClient.get('/analytics/defect-rate');
+  static async getDefectRateAnalysis(projectId?: number): Promise<DefectRateAnalysis> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/defect-rate', { params });
     return response.data;
   }
 
-  static async getVelocityForecast(sprintsAhead?: number): Promise<VelocityForecast> {
-    const params = sprintsAhead ? { sprints_ahead: sprintsAhead } : {};
+  static async getVelocityForecast(sprintsAhead?: number, projectId?: number): Promise<VelocityForecast> {
+    const params: any = {};
+    if (sprintsAhead) params.sprints_ahead = sprintsAhead;
+    if (projectId) params.project_id = projectId;
     const response = await apiClient.get('/analytics/velocity-forecast', { params });
     return response.data;
   }
 
-  static async getTeamVelocityTrends(): Promise<TeamVelocityTrends> {
-    const response = await apiClient.get('/analytics/team-velocity-trends');
+  static async getTeamVelocityTrends(projectId?: number): Promise<TeamVelocityTrends> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/team-velocity-trends', { params });
     return response.data;
   }
 
-  static async getSprintHealth(milestoneId: number): Promise<SprintHealth> {
-    const response = await apiClient.get(`/analytics/sprint-health/${milestoneId}`);
+  static async getSprintHealth(milestoneId: number, projectId?: number): Promise<SprintHealth> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get(`/analytics/sprint-health/${milestoneId}`, { params });
     return response.data;
   }
 
   // Dashboard Endpoints
-  static async getDashboardOverview(): Promise<DashboardOverview> {
-    const response = await apiClient.get('/dashboard/overview');
+  static async getDashboardOverview(projectId?: number): Promise<DashboardOverview> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/dashboard/overview', { params });
     return response.data;
   }
 
-  static async getTeamDashboard(): Promise<TeamDashboard> {
-    const response = await apiClient.get('/dashboard/team');
+  static async getTeamDashboard(projectId?: number): Promise<TeamDashboard> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/dashboard/team', { params });
     return response.data;
   }
 
-  static async getSprintDashboard(): Promise<SprintDashboard> {
-    const response = await apiClient.get('/dashboard/sprint');
+  static async getSprintDashboard(projectId?: number): Promise<SprintDashboard> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/dashboard/sprint', { params });
     return response.data;
   }
 
-  static async getHealthDashboard(): Promise<HealthDashboard> {
-    const response = await apiClient.get('/dashboard/health');
+  static async getHealthDashboard(projectId?: number): Promise<HealthDashboard> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/dashboard/health', { params });
     return response.data;
   }
 
   // Basic Data Endpoints
-  static async getEpics(): Promise<Epic[]> {
-    const response = await apiClient.get('/analytics/epic-status');
+  static async getEpics(projectId?: number): Promise<Epic[]> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/epic-status', { params });
     return response.data.map((epic: { epic_id: number; epic_title: string; start_date: string; due_date: string }) => ({
       id: epic.epic_id,
       title: epic.epic_title,
       start_date: epic.start_date,
       due_date: epic.due_date,
     }));
+  }
+
+  static async getProjects(): Promise<Project[]> {
+    const response = await apiClient.get('/analytics/projects');
+    return response.data;
+  }
+
+  static async getProjectMilestones(projectId: number): Promise<ProjectMilestone[]> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/milestones`);
+    return response.data;
+  }
+
+  static async getProjectEpics(projectId: number): Promise<ProjectEpic[]> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/epics`);
+    return response.data;
   }
 
   static async getMilestonesList(): Promise<Milestone[]> {

@@ -14,6 +14,7 @@ import {
   Badge,
 } from '@chakra-ui/react';
 import { FiMenu, FiBarChart, FiTrendingUp, FiTarget, FiHome, FiUsers, FiCalendar, FiActivity, FiDownload, FiLogOut, FiPieChart } from 'react-icons/fi';
+import ProjectSelector from './ProjectSelector';
 
 interface User {
   first_name?: string;
@@ -61,7 +62,9 @@ const Layout: React.FC<LayoutProps> = ({ onLogout, user }) => {
             </Heading>
           </HStack>
 
-          <HStack gap={4}>
+          <HStack gap={6} align="center">
+            <ProjectSelector />
+            
             {user && (
               <HStack gap={2}>
                 <Box 

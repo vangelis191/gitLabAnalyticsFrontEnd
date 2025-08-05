@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, VStack, HStack, Text, Spinner } from '@chakra-ui/react';
 import GitLabAnalyticsAPI, { type DashboardOverview } from '../../services/api';
+import { useProject } from '../../contexts/ProjectContext';
 
 interface Activity {
   id: number;
@@ -12,6 +13,7 @@ interface Activity {
 }
 
 const Dashboard: React.FC = () => {
+  const { selectedProject } = useProject();
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +22,7 @@ const Dashboard: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const result = await GitLabAnalyticsAPI.getDashboardOverview();
+        const result = await GitLabAnalyticsAPI.getDashboardOverview(selectedProject?.id);
         setData(result);
         setError(null);
       } catch (err: unknown) {
@@ -32,8 +34,18 @@ const Dashboard: React.FC = () => {
       }
     };
 
-    fetchData();
-  }, []);
+    if (selectedProject) {
+      fetchData();
+    }
+  }, [selectedProject]);
+
+  if (!selectedProject) {
+    return (
+      <Box p="6" bg="yellow.50" border="1px solid" borderColor="yellow.200" borderRadius="md">
+        <Text color="yellow.600">Please select a project to view dashboard data</Text>
+      </Box>
+    );
+  }
 
   if (loading) {
     return (
@@ -97,11 +109,11 @@ const Dashboard: React.FC = () => {
             </HStack>
             <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
               <Text fontWeight="medium">Completion Rate:</Text>
-              <Text fontWeight="bold" color="green.600">{data.summary.overall_completion_rate.toFixed(1)}%</Text>
+              <Text fontWeight="bold" color="green.600">{data.summary.overall_completion_rate?.toFixed(1) || '0.0'}%</Text>
             </HStack>
             <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
               <Text fontWeight="medium">Estimation Accuracy:</Text>
-              <Text fontWeight="bold" color="purple.600">{data.summary.estimation_accuracy.toFixed(1)}%</Text>
+              <Text fontWeight="bold" color="purple.600">{data.summary.estimation_accuracy?.toFixed(1) || '0.0'}%</Text>
             </HStack>
             <HStack justify="space-between" p="3" bg="gray.50" borderRadius="md">
               <Text fontWeight="medium">Total Estimated Hours:</Text>

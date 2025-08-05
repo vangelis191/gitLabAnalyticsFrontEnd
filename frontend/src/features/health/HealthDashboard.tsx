@@ -11,8 +11,10 @@ import {
   Progress,
 } from '@chakra-ui/react';
 import GitLabAnalyticsAPI, { type HealthDashboard as HealthDashboardData } from '../../services/api';
+import { useProject } from '../../contexts/ProjectContext';
 
 const HealthDashboard: React.FC = () => {
+  const { selectedProject } = useProject();
   const [data, setData] = useState<HealthDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +25,7 @@ const HealthDashboard: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        const healthData = await GitLabAnalyticsAPI.getHealthDashboard();
+        const healthData = await GitLabAnalyticsAPI.getHealthDashboard(selectedProject?.id);
         setData(healthData);
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load health data';
@@ -34,8 +36,18 @@ const HealthDashboard: React.FC = () => {
       }
     };
 
-    fetchHealthData();
-  }, []);
+    if (selectedProject) {
+      fetchHealthData();
+    }
+  }, [selectedProject]);
+
+  if (!selectedProject) {
+    return (
+      <Box p={6} bg="yellow.50" border="1px solid" borderColor="yellow.200" borderRadius="md">
+        <Text color="yellow.600">Please select a project to view health data</Text>
+      </Box>
+    );
+  }
 
   if (loading) {
     return (
@@ -103,7 +115,7 @@ const HealthDashboard: React.FC = () => {
                 px={3}
                 py={1}
               >
-                {overall_health.health_score.toFixed(1)}%
+                {overall_health.health_score?.toFixed(1) || '0.0'}%
               </Badge>
             </HStack>
             
@@ -167,22 +179,22 @@ const HealthDashboard: React.FC = () => {
                     <Box>
                       <Text fontSize="sm" color="gray.500">Completion Rate</Text>
                       <Text fontWeight="bold" color={getHealthColor(sprint.health_status) + '.500'}>
-                        {sprint.completion_rate_percent.toFixed(1)}%
+                        {sprint.completion_rate_percent?.toFixed(1) || '0.0'}%
                       </Text>
                     </Box>
                     
                     <Box>
                       <Text fontSize="sm" color="gray.500">Estimation Accuracy</Text>
-                      <Text fontWeight="bold" color={sprint.estimation_accuracy_percent >= 90 ? 'green.500' : 'orange.500'}>
-                        {sprint.estimation_accuracy_percent.toFixed(1)}%
-                      </Text>
+                                              <Text fontWeight="bold" color={(sprint.estimation_accuracy_percent || 0) >= 90 ? 'green.500' : 'orange.500'}>
+                          {sprint.estimation_accuracy_percent?.toFixed(1) || '0.0'}%
+                        </Text>
                     </Box>
                     
                     <Box>
                       <Text fontSize="sm" color="gray.500">Progress</Text>
-                      <Text fontWeight="bold" color={getHealthColor(sprint.health_status) + '.500'}>
-                        {sprint.progress_percentage.toFixed(1)}%
-                      </Text>
+                                              <Text fontWeight="bold" color={getHealthColor(sprint.health_status) + '.500'}>
+                          {sprint.progress_percentage?.toFixed(1) || '0.0'}%
+                        </Text>
                     </Box>
                     
                     <Box>
@@ -251,8 +263,8 @@ const HealthDashboard: React.FC = () => {
             <Text fontSize="sm" color="gray.500">Average Completion Rate</Text>
             <Text fontSize="2xl" fontWeight="bold">
               {sprint_health.length > 0 
-                ? (sprint_health.reduce((sum, sprint) => sum + sprint.completion_rate_percent, 0) / sprint_health.length).toFixed(1)
-                : 0
+                ? (sprint_health.reduce((sum, sprint) => sum + (sprint.completion_rate_percent || 0), 0) / sprint_health.length).toFixed(1)
+                : '0.0'
               }%
             </Text>
             <Text fontSize="xs" color="green.500">↑ Across all sprints</Text>
@@ -262,8 +274,8 @@ const HealthDashboard: React.FC = () => {
             <Text fontSize="sm" color="gray.500">Average Estimation Accuracy</Text>
             <Text fontSize="2xl" fontWeight="bold">
               {sprint_health.length > 0 
-                ? (sprint_health.reduce((sum, sprint) => sum + sprint.estimation_accuracy_percent, 0) / sprint_health.length).toFixed(1)
-                : 0
+                ? (sprint_health.reduce((sum, sprint) => sum + (sprint.estimation_accuracy_percent || 0), 0) / sprint_health.length).toFixed(1)
+                : '0.0'
               }%
             </Text>
             <Text fontSize="xs" color="green.500">↑ Time estimates</Text>

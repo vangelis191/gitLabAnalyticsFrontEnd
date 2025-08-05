@@ -14,6 +14,7 @@ import GitLabImport from './features/import/GitLabImport';
 import NotFound from './pages/NotFound';
 import Login from './components/Login';
 import DevTokenButton from './components/DevTokenButton';
+import { ProjectProvider } from './contexts/ProjectContext';
 
 interface User {
   first_name?: string;
@@ -56,21 +57,23 @@ function App() {
 
   return (
     <>
-      <Routes>
-        <Route path="/" element={<Layout onLogout={handleLogout} user={user} />}>
-          <Route index element={<Home />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="velocity" element={<Velocity />} />
-          <Route path="epics" element={<EpicProgress />} />
-          <Route path="epic-chart" element={<EpicProgressChart />} />
-          <Route path="team" element={<TeamDashboard />} />
-          <Route path="sprint" element={<SprintDashboard />} />
-          <Route path="health" element={<HealthDashboard />} />
-          <Route path="import" element={<GitLabImport />} />
-          <Route path="*" element={<NotFound />} />
-        </Route>
-      </Routes>
-      <DevTokenButton />
+      <ProjectProvider>
+        <Routes>
+          <Route path="/" element={<Layout onLogout={handleLogout} user={user} />}>
+            <Route index element={<Home />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="velocity" element={<Velocity />} />
+            <Route path="epics" element={<EpicProgress />} />
+            <Route path="epic-chart" element={<EpicProgressChart />} />
+            <Route path="team" element={<TeamDashboard />} />
+            <Route path="sprint" element={<SprintDashboard />} />
+            <Route path="health" element={<HealthDashboard />} />
+            <Route path="import" element={<GitLabImport />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
+        <DevTokenButton />
+      </ProjectProvider>
     </>
   )
 }
