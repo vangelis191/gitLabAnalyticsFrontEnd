@@ -453,7 +453,7 @@ export class GitLabAnalyticsAPI {
     return response.data;
   }
 
-  static async getEpicStatus(): Promise<EpicStatus> {
+  static async getEpicStatus(): Promise<EpicStatus[]> {
     const response = await apiClient.get('/analytics/epic-status');
     return response.data;
   }

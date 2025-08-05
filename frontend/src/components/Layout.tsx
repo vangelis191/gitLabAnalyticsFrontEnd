@@ -15,9 +15,15 @@ import {
 } from '@chakra-ui/react';
 import { FiMenu, FiBarChart, FiTrendingUp, FiTarget, FiHome, FiUsers, FiCalendar, FiActivity, FiDownload, FiLogOut, FiPieChart } from 'react-icons/fi';
 
+interface User {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+}
+
 interface LayoutProps {
   onLogout: () => void;
-  user: unknown;
+  user: User | null;
 }
 
 const Layout: React.FC<LayoutProps> = ({ onLogout, user }) => {

@@ -8,7 +8,29 @@ import {
   Spinner,
   Badge,
 } from '@chakra-ui/react';
-import GitLabAnalyticsAPI from '../../services/api';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
+import GitLabAnalyticsAPI, { type EpicStatus } from '../../services/api';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 interface EpicProgressData {
   date: string;
@@ -27,6 +49,7 @@ const EpicProgressChart: React.FC = () => {
   const [epics, setEpics] = useState<Epic[]>([]);
   const [selectedEpicId, setSelectedEpicId] = useState<number | null>(null);
   const [progressData, setProgressData] = useState<EpicProgressData[]>([]);
+  const [epicStatus, setEpicStatus] = useState<EpicStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,8 +80,17 @@ const EpicProgressChart: React.FC = () => {
 
       try {
         setLoading(true);
-        const data = await GitLabAnalyticsAPI.getEpicProgress(selectedEpicId);
+        const [data, allEpicStatus] = await Promise.all([
+          GitLabAnalyticsAPI.getEpicProgress(selectedEpicId),
+          GitLabAnalyticsAPI.getEpicStatus()
+        ]);
+        
         setProgressData(data);
+        // Find the specific epic status by ID
+        const epicData = allEpicStatus.find(epic => epic.epic_id === selectedEpicId);
+        if (epicData) {
+          setEpicStatus(epicData);
+        }
         setError(null);
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load progress data';
@@ -78,6 +110,12 @@ const EpicProgressChart: React.FC = () => {
   const currentProgress = latestData ? latestData.actual : 0;
   const estimatedProgress = latestData ? latestData.estimated : 0;
   const isAheadOfSchedule = currentProgress > estimatedProgress;
+
+  // Function to get milestone color based on index
+  const getMilestoneColor = (index: number) => {
+    const colors = ['rgba(255, 99, 132, 0.1)', 'rgba(54, 162, 235, 0.1)', 'rgba(255, 205, 86, 0.1)', 'rgba(75, 192, 192, 0.1)', 'rgba(153, 102, 255, 0.1)'];
+    return colors[index % colors.length];
+  };
 
   if (loading && epics.length === 0) {
     return (
@@ -213,125 +251,120 @@ const EpicProgressChart: React.FC = () => {
               </VStack>
             </Box>
 
-            {/* Custom SVG Line Chart */}
+            {/* Chart.js Line Chart */}
             <Box p="4" bg="white" borderRadius="lg" boxShadow="sm" border="1px solid" borderColor="gray.200">
               <Text fontWeight="semibold" mb="4">Progress Timeline (Monthly View)</Text>
               
-              <Box h="400px" mb="4" position="relative">
-                <svg width="100%" height="100%" viewBox="0 0 800 300">
-                  {/* Grid lines */}
-                  {[0, 25, 50, 75, 100].map((y, i) => (
-                    <line
-                      key={i}
-                      x1="0"
-                      y1={300 - (y * 300 / 100)}
-                      x2="800"
-                      y2={300 - (y * 300 / 100)}
-                      stroke="#e2e8f0"
-                      strokeWidth="1"
-                    />
-                  ))}
-                  
-                  {/* Y-axis labels */}
-                  {[0, 25, 50, 75, 100].map((y, i) => (
-                    <text
-                      key={i}
-                      x="10"
-                      y={300 - (y * 300 / 100) + 5}
-                      fontSize="12"
-                      fill="#718096"
-                    >
-                      {y}%
-                    </text>
-                  ))}
-                  
-                  {/* X-axis labels */}
-                  {progressData.map((d, i) => {
-                    if (i % Math.max(1, Math.floor(progressData.length / 8)) === 0) {
+              <Box h="400px" mb="4">
+                <Line
+                  data={{
+                    labels: progressData.map(d => {
                       const date = new Date(d.date);
-                      const monthName = date.toLocaleDateString('en-US', { month: 'short' });
-                      const day = date.getDate();
-                      return (
-                        <text
-                          key={i}
-                          x={50 + (i * 700 / (progressData.length - 1))}
-                          y="295"
-                          fontSize="12"
-                          fill="#718096"
-                          textAnchor="middle"
-                        >
-                          {monthName} {day}
-                        </text>
-                      );
-                    }
-                    return null;
-                  })}
-                  
-                  {/* Actual progress line */}
-                  <polyline
-                    points={progressData.map((d, i) => 
-                      `${50 + (i * 700 / (progressData.length - 1))},${300 - (d.actual * 300 / 100)}`
-                    ).join(' ')}
-                    fill="none"
-                    stroke="#3b82f6"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  
-                  {/* Estimated progress line */}
-                  <polyline
-                    points={progressData.map((d, i) => 
-                      `${50 + (i * 700 / (progressData.length - 1))},${300 - (d.estimated * 300 / 100)}`
-                    ).join(' ')}
-                    fill="none"
-                    stroke="#22c55e"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  
-                  {/* Data points for actual progress */}
-                  {progressData.map((d, i) => (
-                    <circle
-                      key={`actual-${i}`}
-                      cx={50 + (i * 700 / (progressData.length - 1))}
-                      cy={300 - (d.actual * 300 / 100)}
-                      r="4"
-                      fill="#3b82f6"
-                      stroke="white"
-                      strokeWidth="2"
-                    />
-                  ))}
-                  
-                  {/* Data points for estimated progress */}
-                  {progressData.map((d, i) => (
-                    <circle
-                      key={`estimated-${i}`}
-                      cx={50 + (i * 700 / (progressData.length - 1))}
-                      cy={300 - (d.estimated * 300 / 100)}
-                      r="4"
-                      fill="#22c55e"
-                      stroke="white"
-                      strokeWidth="2"
-                    />
-                  ))}
-                </svg>
-                
-                {/* Legend */}
-                <Box position="absolute" top="10" right="10" bg="white" p="2" borderRadius="md" boxShadow="sm">
+                      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    }),
+                    datasets: [
+                      {
+                        label: 'Actual Progress',
+                        data: progressData.map(d => d.actual),
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 3,
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                      },
+                      {
+                        label: 'Estimated Progress',
+                        data: progressData.map(d => d.estimated),
+                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        borderWidth: 3,
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                      intersect: false,
+                      mode: 'index' as const,
+                    },
+                    plugins: {
+                      legend: {
+                        position: 'top' as const,
+                      },
+                      title: {
+                        display: true,
+                        text: 'Epic Progress: Estimated vs Actual',
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: function(context) {
+                            const label = context.dataset.label || '';
+                            return `${label}: ${context.parsed.y.toFixed(1)}%`;
+                          },
+                        },
+                      },
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                          display: true,
+                          text: 'Progress (%)',
+                        },
+                        ticks: {
+                          callback: function(value) {
+                            return typeof value === 'number' ? value + '%' : value;
+                          },
+                        },
+                      },
+                      x: {
+                        title: {
+                          display: true,
+                          text: 'Timeline (Months)',
+                        },
+                      },
+                    },
+                  }}
+                />
+              </Box>
+              
+              {/* Milestone Legend */}
+              {epicStatus?.milestones && epicStatus.milestones.length > 0 && (
+                <Box mt="4" p="3" bg="gray.50" borderRadius="md">
+                  <Text fontWeight="semibold" mb="2" fontSize="sm">Milestones:</Text>
                   <VStack gap="1" align="start">
-                    <HStack gap="2">
-                      <Box w="3" h="3" bg="#3b82f6" borderRadius="full" />
-                      <Text fontSize="sm">Actual Progress</Text>
-                    </HStack>
-                    <HStack gap="2">
-                      <Box w="3" h="3" bg="#22c55e" borderRadius="full" />
-                      <Text fontSize="sm">Estimated Progress</Text>
-                    </HStack>
+                    {epicStatus.milestones.map((milestone, index) => (
+                      <HStack key={milestone.milestone_id} gap="2">
+                        <Box 
+                          w="3" 
+                          h="3" 
+                          bg={getMilestoneColor(index)} 
+                          borderRadius="full"
+                          border="1px solid"
+                          borderColor="gray.300"
+                        />
+                        <Text fontSize="xs">
+                          {milestone.title} ({milestone.progress_percent.toFixed(1)}%)
+                        </Text>
+                        <Badge 
+                          size="xs" 
+                          colorScheme={milestone.successful ? 'green' : 'orange'}
+                        >
+                          {milestone.successful ? '✅' : '⏳'}
+                        </Badge>
+                      </HStack>
+                    ))}
                   </VStack>
                 </Box>
-              </Box>
+              )}
               
               <Text fontSize="xs" color="gray.500" textAlign="center">
                 {progressData.length > 0 

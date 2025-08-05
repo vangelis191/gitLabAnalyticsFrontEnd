@@ -12,15 +12,11 @@ import {
   SimpleGrid,
 } from '@chakra-ui/react';
 import { FiBarChart, FiTrendingUp, FiTarget, FiUsers, FiCalendar, FiActivity, FiDownload } from 'react-icons/fi';
-import AuthDebug from '../components/AuthDebug';
 
 const Home: React.FC = () => {
   return (
     <Container maxW="container.xl" py={8}>
       <VStack gap={8} align="stretch">
-        {/* Auth Debug Section */}
-        <AuthDebug />
-        
         {/* Welcome Section */}
         <Box textAlign="center" py={12}>
           <Heading size="2xl" mb={4} color="gray.800">

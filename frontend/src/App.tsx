@@ -2,6 +2,7 @@ import './App.css'
 import { useState, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
+import Home from './pages/Home';
 import Dashboard from './features/dashboard/DashBoard';
 import Velocity from './features/velocity/VelocityChart';
 import EpicProgress from './features/epic/EpicProgress';
@@ -14,9 +15,15 @@ import NotFound from './pages/NotFound';
 import Login from './components/Login';
 import DevTokenButton from './components/DevTokenButton';
 
+interface User {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+}
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<unknown>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   // Check if user is authenticated on app load
   useEffect(() => {
@@ -29,7 +36,7 @@ function App() {
 
   const handleLogin = (userData: unknown) => {
     setIsAuthenticated(true);
-    setUser(userData);
+    setUser(userData as User);
   };
 
   const handleLogout = () => {
@@ -51,7 +58,7 @@ function App() {
     <>
       <Routes>
         <Route path="/" element={<Layout onLogout={handleLogout} user={user} />}>
-          <Route index element={<Dashboard />} />
+          <Route index element={<Home />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="velocity" element={<Velocity />} />
           <Route path="epics" element={<EpicProgress />} />
