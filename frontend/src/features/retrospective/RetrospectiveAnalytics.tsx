@@ -9,69 +9,64 @@ import {
   Heading,
 } from '@chakra-ui/react';
 import { useProject } from '../../hooks/useProject';
-
-interface RetrospectiveInsights {
-  sprint_id: number;
-  sprint_title: string;
-  completion_rate: number;
-  estimation_accuracy: number;
-  what_went_well: string[];
-  what_could_improve: string[];
-  action_items: string[];
-  team_sentiment: string;
-  process_improvements: string[];
-}
+import { RetrospectiveService } from './retrospectiveService';
+import type { RetrospectiveInsights } from './retrospectiveService';
 
 const RetrospectiveAnalytics: React.FC = () => {
   const { selectedProject } = useProject();
   const [insights, setInsights] = useState<RetrospectiveInsights | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [availableSprints, setAvailableSprints] = useState<Array<{ id: number; title: string }>>([]);
+  const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null);
 
   useEffect(() => {
     if (selectedProject) {
-      loadRetrospectiveData();
+      loadAvailableSprints();
     }
   }, [selectedProject]);
 
-  const loadRetrospectiveData = async () => {
+  useEffect(() => {
+    if (selectedProject && selectedSprintId) {
+      loadRetrospectiveData();
+    }
+  }, [selectedProject, selectedSprintId]);
+
+  const loadAvailableSprints = async () => {
     if (!selectedProject) return;
 
     try {
       setLoading(true);
       setError(null);
+      
+      const sprints = await RetrospectiveService.getAvailableSprints(selectedProject.id);
+      setAvailableSprints(sprints);
+      
+      // Auto-select the most recent sprint
+      if (sprints.length > 0) {
+        setSelectedSprintId(sprints[sprints.length - 1].id);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load available sprints';
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // Mock retrospective insights
-      const mockInsights: RetrospectiveInsights = {
-        sprint_id: 1,
-        sprint_title: "Sprint 1 - Foundation",
-        completion_rate: Math.floor(Math.random() * 20) + 80, // 80-100%
-        estimation_accuracy: Math.floor(Math.random() * 30) + 70, // 70-100%
-        what_went_well: [
-          "High sprint completion rate achieved",
-          "Good estimation accuracy maintained",
-          "Even workload distribution across team"
-        ],
-        what_could_improve: [
-          "Sprint completion rate below target",
-          "Estimation accuracy needs improvement",
-          "High number of bugs indicates quality issues"
-        ],
-        action_items: [
-          "Reduce sprint commitment by 20%",
-          "Add 25% buffer to time estimates",
-          "Increase testing time allocation"
-        ],
-        team_sentiment: "Positive",
-        process_improvements: [
-          "Implement stricter change control process",
-          "Add more detailed acceptance criteria",
-          "Improve daily standup effectiveness"
-        ]
-      };
+  const loadRetrospectiveData = async () => {
+    if (!selectedProject || !selectedSprintId) return;
 
-      setInsights(mockInsights);
+    try {
+      setLoading(true);
+      setError(null);
 
+      const retrospectiveData = await RetrospectiveService.getSprintRetrospective(
+        selectedSprintId,
+        selectedProject.id
+      );
+      
+      setInsights(retrospectiveData);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load retrospective data';
       setError(errorMessage);
@@ -124,6 +119,33 @@ const RetrospectiveAnalytics: React.FC = () => {
             <Text color="red.600">{error}</Text>
           </Box>
         )}
+
+        {/* Sprint Selector */}
+        <Box p="4" bg="white" borderRadius="md" border="1px solid" borderColor="gray.200">
+          <VStack gap="3" align="stretch">
+            <Text fontWeight="semibold" color="gray.700">Select Sprint</Text>
+            <select
+              value={selectedSprintId || ''}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedSprintId(Number(e.target.value))}
+              disabled={loading || availableSprints.length === 0}
+              style={{
+                padding: '8px 12px',
+                border: '1px solid #e2e8f0',
+                borderRadius: '6px',
+                fontSize: '14px',
+                backgroundColor: 'white',
+                color: '#2d3748'
+              }}
+            >
+              <option value="">Choose a sprint to analyze</option>
+              {availableSprints.map((sprint) => (
+                <option key={sprint.id} value={sprint.id}>
+                  {sprint.title}
+                </option>
+              ))}
+            </select>
+          </VStack>
+        </Box>
 
         {/* Sprint Overview */}
         {insights && (
