@@ -7,7 +7,7 @@ import {
   Badge,
   VStack,
 } from '@chakra-ui/react';
-import { useProject } from '../contexts/ProjectContext';
+import { useProject } from '../hooks/useProject';
 
 const ProjectSelector: React.FC = () => {
   const { selectedProject, projects, loading, error, setSelectedProject } = useProject();

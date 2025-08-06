@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, VStack, HStack, Text, Spinner } from '@chakra-ui/react';
 import GitLabAnalyticsAPI, { type EpicSuccess, type EpicStatus, type Epic } from '../../services/api';
-import { useProject } from '../../contexts/ProjectContext';
+import { useProject } from '../../hooks/useProject';
 
 interface EpicSuccessItem {
   epic_id: number;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, VStack, HStack, Text, Spinner } from '@chakra-ui/react';
 import GitLabAnalyticsAPI, { type VelocityStats, type GitLabVelocity } from '../../services/api';
-import { useProject } from '../../contexts/ProjectContext';
+import { useProject } from '../../hooks/useProject';
 
 interface Sprint {
   milestone_id: number;

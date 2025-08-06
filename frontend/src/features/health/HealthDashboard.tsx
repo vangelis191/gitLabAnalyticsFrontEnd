@@ -8,10 +8,9 @@ import {
   SimpleGrid,
   Badge,
   Spinner,
-  Progress,
 } from '@chakra-ui/react';
 import GitLabAnalyticsAPI, { type HealthDashboard as HealthDashboardData } from '../../services/api';
-import { useProject } from '../../contexts/ProjectContext';
+import { useProject } from '../../hooks/useProject';
 
 const HealthDashboard: React.FC = () => {
   const { selectedProject } = useProject();

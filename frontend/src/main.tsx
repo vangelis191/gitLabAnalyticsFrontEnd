@@ -4,13 +4,22 @@ import './index.css'
 import App from './App.tsx'
 import { Provider } from './components/ui/provider.tsx'
 import { Box } from '@chakra-ui/react'
+import { ClerkProvider } from '@clerk/clerk-react'
+
+const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+if (!publishableKey) {
+  throw new Error("Missing Publishable Key")
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Provider>
-      <Box padding="10">
-        <App />
-      </Box>
-    </Provider>
-</StrictMode>,
+    <ClerkProvider publishableKey={publishableKey}>
+      <Provider>
+        <Box padding="10">
+          <App />
+        </Box>
+      </Provider>
+    </ClerkProvider>
+  </StrictMode>,
 )

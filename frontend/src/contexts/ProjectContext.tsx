@@ -1,24 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import React, { useState, useEffect, type ReactNode } from 'react';
 import GitLabAnalyticsAPI, { type Project } from '../services/api';
-
-interface ProjectContextType {
-  selectedProject: Project | null;
-  projects: Project[];
-  loading: boolean;
-  error: string | null;
-  setSelectedProject: (project: Project | null) => void;
-  refreshProjects: () => void;
-}
-
-const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
-
-export const useProject = () => {
-  const context = useContext(ProjectContext);
-  if (context === undefined) {
-    throw new Error('useProject must be used within a ProjectProvider');
-  }
-  return context;
-};
+import { ProjectContext } from './ProjectContextDef';
 
 interface ProjectProviderProps {
   children: ReactNode;
@@ -58,7 +40,7 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
     fetchProjects();
   }, []);
 
-  const value: ProjectContextType = {
+  const value = {
     selectedProject,
     projects,
     loading,

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // API Configuration
-const API_BASE_URL = 'http://localhost:5001';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -439,13 +439,13 @@ export class GitLabAnalyticsAPI {
     const params: any = {};
     if (backlog) params.backlog = backlog;
     if (projectId) params.project_id = projectId;
-    const response = await apiClient.get('/analytics/velocity-stats', { params });
+    const response = await apiClient.get('/analytics/velocity/stats', { params });
     return response.data;
   }
 
   static async getVelocityChart(projectId?: number): Promise<VelocityChart> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/analytics/velocity-chart', { params });
+    const response = await apiClient.get('/analytics/velocity/chart', { params });
     return response.data;
   }
 
@@ -455,7 +455,7 @@ export class GitLabAnalyticsAPI {
     actual: number;
   }>> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get(`/analytics/epic-progress/${epicId}`, { params });
+    const response = await apiClient.get(`/epic/progress/${epicId}`, { params });
     return response.data;
   }
 
@@ -510,7 +510,7 @@ export class GitLabAnalyticsAPI {
   // GitLab Time-Based Analytics
   static async getGitLabVelocity(projectId?: number): Promise<GitLabVelocity[]> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/analytics/gitlab-velocity', { params });
+    const response = await apiClient.get('/analytics/gitlab/velocity', { params });
     return response.data;
   }
 

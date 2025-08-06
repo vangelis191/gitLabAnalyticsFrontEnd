@@ -10,7 +10,7 @@ import {
   Spinner,
 } from '@chakra-ui/react';
 import GitLabAnalyticsAPI, { type SprintDashboard as SprintDashboardData } from '../../services/api';
-import { useProject } from '../../contexts/ProjectContext';
+import { useProject } from '../../hooks/useProject';
 
 const SprintDashboard: React.FC = () => {
   const { selectedProject } = useProject();

@@ -13,7 +13,7 @@ import {
   Badge,
 } from '@chakra-ui/react';
 import { FiBarChart, FiTrendingUp, FiTarget, FiUsers, FiCalendar, FiActivity, FiDownload } from 'react-icons/fi';
-import { useProject } from '../contexts/ProjectContext';
+import { useProject } from '../hooks/useProject';
 
 const Home: React.FC = () => {
   const { selectedProject } = useProject();

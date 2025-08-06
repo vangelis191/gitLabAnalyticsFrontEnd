@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, Outlet } from 'react-router-dom';
+import { useAuth, useUser } from '@clerk/clerk-react';
 import {
   Box,
   Button,
@@ -13,21 +14,12 @@ import {
   Icon,
   Badge,
 } from '@chakra-ui/react';
-import { FiMenu, FiBarChart, FiTrendingUp, FiTarget, FiHome, FiUsers, FiCalendar, FiActivity, FiDownload, FiLogOut, FiPieChart } from 'react-icons/fi';
+import { FiMenu, FiBarChart, FiTrendingUp, FiTarget, FiHome, FiUsers, FiCalendar, FiActivity, FiLogOut, FiPieChart, FiGitBranch, FiCheckSquare, FiShield, FiAlertTriangle, FiRefreshCw } from 'react-icons/fi';
 import ProjectSelector from './ProjectSelector';
 
-interface User {
-  first_name?: string;
-  last_name?: string;
-  email?: string;
-}
-
-interface LayoutProps {
-  onLogout: () => void;
-  user: User | null;
-}
-
-const Layout: React.FC<LayoutProps> = ({ onLogout, user }) => {
+const Layout: React.FC = () => {
+  const { signOut } = useAuth();
+  const { user } = useUser();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const navigationItems = [
@@ -38,8 +30,12 @@ const Layout: React.FC<LayoutProps> = ({ onLogout, user }) => {
     { icon: FiPieChart, label: 'Epic Chart', path: '/epic-chart' },
     { icon: FiUsers, label: 'Team', path: '/team' },
     { icon: FiCalendar, label: 'Sprint', path: '/sprint' },
+    { icon: FiCheckSquare, label: 'Sprint Planning', path: '/sprint-planning' },
+    { icon: FiShield, label: 'Quality Analytics', path: '/quality' },
+    { icon: FiAlertTriangle, label: 'Risk Assessment', path: '/risk-assessment' },
+    { icon: FiRefreshCw, label: 'Retrospective', path: '/retrospective' },
     { icon: FiActivity, label: 'Health', path: '/health' },
-    { icon: FiDownload, label: 'Import', path: '/import' },
+    { icon: FiGitBranch, label: 'GitLab Integration', path: '/gitlab-integration' },
   ];
 
   return (
@@ -79,11 +75,15 @@ const Layout: React.FC<LayoutProps> = ({ onLogout, user }) => {
                   fontSize="sm"
                   fontWeight="bold"
                 >
-                  {user.first_name?.[0]}{user.last_name?.[0]}
+                  {user.firstName?.[0] || user.emailAddresses[0]?.emailAddress?.[0] || 'U'}
                 </Box>
                 <VStack align="start" gap={0}>
-                  <Text fontSize="sm" fontWeight="medium">{user.first_name} {user.last_name}</Text>
-                  <Text fontSize="xs" color="gray.500">{user.email}</Text>
+                  <Text fontSize="sm" fontWeight="medium">
+                    {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : 'User'}
+                  </Text>
+                  <Text fontSize="xs" color="gray.500">
+                    {user.emailAddresses[0]?.emailAddress || 'No email'}
+                  </Text>
                 </VStack>
               </HStack>
             )}
@@ -95,7 +95,7 @@ const Layout: React.FC<LayoutProps> = ({ onLogout, user }) => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={onLogout}
+              onClick={() => signOut()}
             >
               <Icon as={FiLogOut} mr={2} />
               Logout
@@ -167,11 +167,15 @@ const Layout: React.FC<LayoutProps> = ({ onLogout, user }) => {
                           fontSize="sm"
                           fontWeight="bold"
                         >
-                          {user.first_name?.[0]}{user.last_name?.[0]}
+                          {user.firstName?.[0] || user.emailAddresses[0]?.emailAddress?.[0] || 'U'}
                         </Box>
                         <VStack align="start" gap={0}>
-                          <Text fontSize="sm" fontWeight="semibold">{user.first_name} {user.last_name}</Text>
-                          <Text fontSize="xs" color="gray.500">{user.email}</Text>
+                          <Text fontSize="sm" fontWeight="semibold">
+                            {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : 'User'}
+                          </Text>
+                          <Text fontSize="xs" color="gray.500">
+                            {user.emailAddresses[0]?.emailAddress || 'No email'}
+                          </Text>
                         </VStack>
                       </HStack>
                     </VStack>

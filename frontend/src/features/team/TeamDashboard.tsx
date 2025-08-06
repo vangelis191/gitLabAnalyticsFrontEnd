@@ -10,7 +10,7 @@ import {
   Spinner,
 } from '@chakra-ui/react';
 import GitLabAnalyticsAPI, { type TeamDashboard as TeamDashboardData, type DeveloperSummary } from '../../services/api';
-import { useProject } from '../../contexts/ProjectContext';
+import { useProject } from '../../hooks/useProject';
 
 const TeamDashboard: React.FC = () => {
   const { selectedProject } = useProject();
