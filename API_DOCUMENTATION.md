@@ -98,6 +98,138 @@ Returns whether an epic was successful in a specific time period.
 
 **Query Parameters:**
 - `epic_id`: Epic ID to check
+
+---
+
+## 🔄 **Retrospective Analytics Endpoints**
+
+### 1. Sprint Retrospective Analysis
+**GET** `/analytics/retrospective/{sprint_id}`
+
+Analyzes a sprint for retrospective insights including completion rates, estimation accuracy, and improvement suggestions.
+
+**Path Parameters:**
+- `sprint_id`: ID of the sprint to analyze
+
+**Query Parameters:**
+- `project_id` (optional): Project ID for project-specific analysis
+
+**Response:**
+```json
+{
+  "sprint_id": 1,
+  "sprint_title": "Sprint 1 - Foundation",
+  "completion_rate": 85.5,
+  "estimation_accuracy": 78.2,
+  "what_went_well": [
+    "High sprint completion rate achieved",
+    "Good estimation accuracy maintained",
+    "Even workload distribution across team"
+  ],
+  "what_could_improve": [
+    "Sprint completion rate below target",
+    "Estimation accuracy needs improvement"
+  ],
+  "action_items": [
+    "Reduce sprint commitment by 20%",
+    "Add 25% buffer to time estimates"
+  ],
+  "team_sentiment": "Positive",
+  "process_improvements": [
+    "Implement stricter change control process",
+    "Add more detailed acceptance criteria"
+  ],
+  "metrics": {
+    "total_issues": 15,
+    "closed_issues": 12,
+    "estimated_hours": 120,
+    "spent_hours": 135,
+    "average_issue_completion_time": 3.2,
+    "bug_count": 2,
+    "story_count": 8,
+    "task_count": 5
+  }
+}
+```
+
+### 1.1. Retrospective Trends
+**GET** `/analytics/retrospective/trends?sprints_count=5`
+
+Returns retrospective trends across multiple sprints.
+
+**Query Parameters:**
+- `project_id` (optional): Project ID for project-specific analysis
+- `sprints_count` (optional): Number of sprints to analyze (default: 5)
+
+**Response:**
+```json
+{
+  "completion_rates": [85.5, 78.2, 92.1, 88.7, 90.3],
+  "estimation_accuracies": [78.2, 72.5, 85.1, 79.8, 82.4],
+  "sprint_titles": ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5"],
+  "overall_trend": "improving"
+}
+```
+
+### 1.2. Action Item Effectiveness
+**POST** `/analytics/retrospective/actions/{sprint_id}`
+
+Tracks the effectiveness of retrospective action items.
+
+**Path Parameters:**
+- `sprint_id`: ID of the sprint
+
+**Request Body:**
+```json
+{
+  "action_items": [
+    "Reduce sprint commitment by 20%",
+    "Add 25% buffer to time estimates"
+  ],
+  "follow_up_sprints": [2, 3, 4]
+}
+```
+
+**Response:**
+```json
+{
+  "sprint_id": 1,
+  "action_items": ["Reduce sprint commitment by 20%", "Add 25% buffer to time estimates"],
+  "effectiveness": {
+    "Reduce sprint commitment by 20%": {
+      "status": "implemented",
+      "effectiveness_score": 75.0,
+      "follow_up_needed": false,
+      "recommendations": ["Action is working but could be improved"]
+    }
+  },
+  "overall_effectiveness": 75.0
+}
+```
+
+### 1.3. Project-Specific Retrospective Analysis
+**GET** `/analytics/projects/{project_id}/retrospective/{sprint_id}`
+
+Project-specific sprint retrospective analysis.
+
+**Path Parameters:**
+- `project_id`: Project ID
+- `sprint_id`: Sprint ID
+
+**Response:** Same as general retrospective analysis
+
+### 1.4. Project-Specific Retrospective Trends
+**GET** `/analytics/projects/{project_id}/retrospective/trends?sprints_count=5`
+
+Project-specific retrospective trends.
+
+**Path Parameters:**
+- `project_id`: Project ID
+
+**Query Parameters:**
+- `sprints_count` (optional): Number of sprints to analyze
+
+**Response:** Same as general retrospective trends
 - `from_date`: Start date (YYYY-MM-DD)
 - `to_date`: End date (YYYY-MM-DD)
 
@@ -827,7 +959,7 @@ Example of an optionally protected route.
 
 ## 📊 **Complete API Summary**
 
-### **Total Endpoints: 27**
+### **Total Endpoints: 32**
 
 **Core Analytics (8 endpoints):**
 - Velocity Analysis & Charts
@@ -835,6 +967,13 @@ Example of an optionally protected route.
 - Milestone Success & Lists
 - Developer Success & Summary
 - Period Success Check
+
+**Retrospective Analytics (5 endpoints):**
+- Sprint Retrospective Analysis
+- Retrospective Trends
+- Action Item Effectiveness Tracking
+- Project-specific Retrospective Analysis
+- Project-specific Retrospective Trends
 
 **GitLab Time-Based Analytics (5 endpoints):**
 - Time-based Velocity
