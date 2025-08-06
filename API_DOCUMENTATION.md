@@ -1,7 +1,7 @@
 # GitLab Analytics API Documentation
 
 ## Overview
-This API provides comprehensive Agile analytics for GitLab projects, including time-based velocity analysis, team performance metrics, and project health indicators.
+This API provides comprehensive Agile analytics for GitLab projects, including time-based velocity analysis, team performance metrics, project health indicators, and advanced analytics features.
 
 ## Base URL
 ```
@@ -9,243 +9,61 @@ http://localhost:5001
 ```
 
 ## Authentication
-Most endpoints require Clerk authentication. Include the JWT token in the Authorization header:
+Most endpoints require authentication. Include the JWT token in the Authorization header:
 ```
 Authorization: Bearer <your-jwt-token>
 ```
 
 **Public Endpoints (No Authentication Required):**
 - `GET /health` - Health check
-- `GET /auth/optional` - Optional authentication example
 
 **Protected Endpoints (Authentication Required):**
 - All analytics endpoints (`/analytics/*`)
 - All dashboard endpoints (`/dashboard/*`)
 - All data endpoints (`/epics`, `/milestones`)
 - GitLab integration (`/import/gitlab`)
-- Authentication endpoints (`/auth/me`, `/auth/protected`, `/auth/verify`)
+- Authentication endpoints (`/auth/*`)
 
 ---
 
 ## 🔍 **Core Analytics Endpoints**
 
-### 1. Velocity Analysis
-**GET** `/analytics/velocity/stats?backlog=40`
+### 1. Projects
+**GET** `/analytics/projects`
 
-Returns time-based velocity statistics using GitLab time estimates.
-
-**Query Parameters:**
-- `backlog` (optional): Remaining hours in backlog for sprint estimation
+Returns all projects.
 
 **Response:**
 ```json
-{
-  "sprints": [
-    {
-      "milestone_id": 1,
-      "title": "Sprint 1",
-      "total_issues": 4,
-      "closed_issues": 2,
-      "velocity_hours": 16.5,
-      "avg_hours_per_issue": 8.25
-    }
-  ],
-  "total_issues_closed": 10,
-  "average_velocity_hours": 20.5,
-  "backlog_remaining_hours": 40,
-  "estimated_sprints_to_finish_backlog": 2
-}
-```
-
-### 1.1. Velocity Chart
-**GET** `/analytics/velocity/chart`
-
-Returns velocity chart data for visualization.
-
-**Response:**
-```json
-{
-  "chart_data": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
-  "sprints": ["Sprint 1", "Sprint 2", "Sprint 3"],
-  "velocities": [16.5, 20.0, 18.5]
-}
-```
-
-### 1.2. Epic Progress
-**GET** `/epic/progress/{epic_id}`
-
-Returns epic progress data for charts.
-
-**Response:**
-```json
-{
-  "epic_id": 1,
-  "epic_title": "GitLab Analytics Platform",
-  "progress_data": [
-    {
-      "date": "2025-07-29",
-      "estimated_progress": 0,
-      "actual_progress": 0
-    }
-  ]
-}
-```
-
-### 1.3. Period Success Check
-**GET** `/analytics/is-period-successful?epic_id=1&from_date=2025-07-29&to_date=2025-08-15`
-
-Returns whether an epic was successful in a specific time period.
-
-**Query Parameters:**
-- `epic_id`: Epic ID to check
-
----
-
-## 🔄 **Retrospective Analytics Endpoints**
-
-### 1. Sprint Retrospective Analysis
-**GET** `/analytics/retrospective/{sprint_id}`
-
-Analyzes a sprint for retrospective insights including completion rates, estimation accuracy, and improvement suggestions.
-
-**Path Parameters:**
-- `sprint_id`: ID of the sprint to analyze
-
-**Query Parameters:**
-- `project_id` (optional): Project ID for project-specific analysis
-
-**Response:**
-```json
-{
-  "sprint_id": 1,
-  "sprint_title": "Sprint 1 - Foundation",
-  "completion_rate": 85.5,
-  "estimation_accuracy": 78.2,
-  "what_went_well": [
-    "High sprint completion rate achieved",
-    "Good estimation accuracy maintained",
-    "Even workload distribution across team"
-  ],
-  "what_could_improve": [
-    "Sprint completion rate below target",
-    "Estimation accuracy needs improvement"
-  ],
-  "action_items": [
-    "Reduce sprint commitment by 20%",
-    "Add 25% buffer to time estimates"
-  ],
-  "team_sentiment": "Positive",
-  "process_improvements": [
-    "Implement stricter change control process",
-    "Add more detailed acceptance criteria"
-  ],
-  "metrics": {
-    "total_issues": 15,
-    "closed_issues": 12,
-    "estimated_hours": 120,
-    "spent_hours": 135,
-    "average_issue_completion_time": 3.2,
-    "bug_count": 2,
-    "story_count": 8,
-    "task_count": 5
+[
+  {
+    "id": 1,
+    "name": "GitLab Analytics Platform",
+    "gitlab_url": "https://gitlab.com",
+    "gitlab_token": "***"
   }
-}
+]
 ```
 
-### 1.1. Retrospective Trends
-**GET** `/analytics/retrospective/trends?sprints_count=5`
+### 2. Milestones
+**GET** `/analytics/milestones`
 
-Returns retrospective trends across multiple sprints.
-
-**Query Parameters:**
-- `project_id` (optional): Project ID for project-specific analysis
-- `sprints_count` (optional): Number of sprints to analyze (default: 5)
+Returns all milestones with their issues.
 
 **Response:**
 ```json
-{
-  "completion_rates": [85.5, 78.2, 92.1, 88.7, 90.3],
-  "estimation_accuracies": [78.2, 72.5, 85.1, 79.8, 82.4],
-  "sprint_titles": ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5"],
-  "overall_trend": "improving"
-}
+[
+  {
+    "id": 1,
+    "title": "Sprint 1",
+    "start_date": "2025-07-29",
+    "due_date": "2025-08-09",
+    "issues": [...]
+  }
+]
 ```
 
-### 1.2. Action Item Effectiveness
-**POST** `/analytics/retrospective/actions/{sprint_id}`
-
-Tracks the effectiveness of retrospective action items.
-
-**Path Parameters:**
-- `sprint_id`: ID of the sprint
-
-**Request Body:**
-```json
-{
-  "action_items": [
-    "Reduce sprint commitment by 20%",
-    "Add 25% buffer to time estimates"
-  ],
-  "follow_up_sprints": [2, 3, 4]
-}
-```
-
-**Response:**
-```json
-{
-  "sprint_id": 1,
-  "action_items": ["Reduce sprint commitment by 20%", "Add 25% buffer to time estimates"],
-  "effectiveness": {
-    "Reduce sprint commitment by 20%": {
-      "status": "implemented",
-      "effectiveness_score": 75.0,
-      "follow_up_needed": false,
-      "recommendations": ["Action is working but could be improved"]
-    }
-  },
-  "overall_effectiveness": 75.0
-}
-```
-
-### 1.3. Project-Specific Retrospective Analysis
-**GET** `/analytics/projects/{project_id}/retrospective/{sprint_id}`
-
-Project-specific sprint retrospective analysis.
-
-**Path Parameters:**
-- `project_id`: Project ID
-- `sprint_id`: Sprint ID
-
-**Response:** Same as general retrospective analysis
-
-### 1.4. Project-Specific Retrospective Trends
-**GET** `/analytics/projects/{project_id}/retrospective/trends?sprints_count=5`
-
-Project-specific retrospective trends.
-
-**Path Parameters:**
-- `project_id`: Project ID
-
-**Query Parameters:**
-- `sprints_count` (optional): Number of sprints to analyze
-
-**Response:** Same as general retrospective trends
-- `from_date`: Start date (YYYY-MM-DD)
-- `to_date`: End date (YYYY-MM-DD)
-
-**Response:**
-```json
-{
-  "epic_id": 1,
-  "from_date": "2025-07-29",
-  "to_date": "2025-08-15",
-  "successful": true,
-  "total_issues": 4,
-  "closed_issues": 4
-}
-```
-
-### 2. Epic Success Analysis
+### 3. Epic Success Analysis
 **GET** `/analytics/epic-success`
 
 Returns success status for all epics.
@@ -261,7 +79,23 @@ Returns success status for all epics.
 ]
 ```
 
-### 2.1. Developer Success Analysis
+### 4. Milestone Success Analysis
+**GET** `/analytics/milestone-success`
+
+Returns success status for all milestones.
+
+**Response:**
+```json
+[
+  {
+    "milestone_id": 1,
+    "title": "Sprint 1",
+    "successful": true
+  }
+]
+```
+
+### 5. Developer Success Analysis
 **GET** `/analytics/developer-success`
 
 Returns developer success analysis per milestone.
@@ -290,7 +124,7 @@ Returns developer success analysis per milestone.
 ]
 ```
 
-### 2.2. Developer Summary
+### 6. Developer Summary
 **GET** `/analytics/developer-summary`
 
 Returns overall developer performance summary.
@@ -308,7 +142,7 @@ Returns overall developer performance summary.
 ]
 ```
 
-### 2.3. Epic Status
+### 7. Epic Status
 **GET** `/analytics/epic-status`
 
 Returns detailed epic status with milestone breakdown.
@@ -321,50 +155,14 @@ Returns detailed epic status with milestone breakdown.
   "start_date": "2025-07-29",
   "due_date": "2026-01-29",
   "successful": true,
-  "milestones": [
-    {
-      "milestone_id": 1,
-      "title": "Sprint 1",
-      "total_issues": 4,
-      "closed_issues": 2,
-      "progress_percent": 50.0,
-      "successful": false
-    }
-  ]
+  "milestones": [...]
 }
 ```
 
-### 3. Milestones List
-**GET** `/analytics/milestones`
+### 8. Velocity Analysis
+**GET** `/analytics/velocity`
 
-Returns all milestones with their issues.
-
-**Response:**
-```json
-[
-  {
-    "id": 1,
-    "title": "Sprint 1",
-    "start_date": "2025-07-29",
-    "due_date": "2025-08-09",
-    "issues": [
-      {
-        "id": 101,
-        "title": "Task A",
-        "state": "opened",
-        "assignee": "Nikos",
-        "closed_date": null,
-        "milestone_id": 1
-      }
-    ]
-  }
-]
-```
-
-### 4. Milestone Success Analysis
-**GET** `/analytics/milestone-success`
-
-Returns success status for all milestones.
+Returns velocity per milestone.
 
 **Response:**
 ```json
@@ -372,16 +170,100 @@ Returns success status for all milestones.
   {
     "milestone_id": 1,
     "title": "Sprint 1",
-    "successful": true
+    "velocity": 16.5
   }
 ]
+```
+
+### 9. Velocity Statistics
+**GET** `/analytics/velocity/stats?backlog=40`
+
+Returns time-based velocity statistics using GitLab time estimates.
+
+**Query Parameters:**
+- `backlog` (optional): Remaining hours in backlog for sprint estimation
+
+**Response:**
+```json
+{
+  "sprints": [
+    {
+      "milestone_id": 1,
+      "title": "Sprint 1",
+      "total_issues": 4,
+      "closed_issues": 2,
+      "velocity_hours": 16.5,
+      "avg_hours_per_issue": 8.25
+    }
+  ],
+  "total_issues_closed": 10,
+  "average_velocity_hours": 20.5,
+  "backlog_remaining_hours": 40,
+  "estimated_sprints_to_finish_backlog": 2
+}
+```
+
+### 10. Velocity Chart
+**GET** `/analytics/velocity/chart`
+
+Returns velocity chart data for visualization.
+
+**Response:**
+```json
+{
+  "chart_data": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+  "sprints": ["Sprint 1", "Sprint 2", "Sprint 3"],
+  "velocities": [16.5, 20.0, 18.5]
+}
+```
+
+### 11. Epic Progress
+**GET** `/epic/progress/{epic_id}`
+
+Returns epic progress data for charts.
+
+**Response:**
+```json
+{
+  "epic_id": 1,
+  "epic_title": "GitLab Analytics Platform",
+  "progress_data": [
+    {
+      "date": "2025-07-29",
+      "estimated_progress": 0,
+      "actual_progress": 0
+    }
+  ]
+}
+```
+
+### 12. Period Success Check
+**GET** `/analytics/is-period-successful?epic_id=1&from_date=2025-07-29&to_date=2025-08-15`
+
+Returns whether an epic was successful in a specific time period.
+
+**Query Parameters:**
+- `epic_id`: Epic ID to check
+- `from_date`: Start date (YYYY-MM-DD)
+- `to_date`: End date (YYYY-MM-DD)
+
+**Response:**
+```json
+{
+  "epic_id": 1,
+  "from_date": "2025-07-29",
+  "to_date": "2025-08-15",
+  "successful": true,
+  "total_issues": 4,
+  "closed_issues": 4
+}
 ```
 
 ---
 
 ## 🕒 **GitLab Time-Based Analytics**
 
-### 5. Time-Based Velocity Analysis
+### 13. GitLab Velocity Analysis
 **GET** `/analytics/gitlab/velocity`
 
 Returns comprehensive time-based velocity metrics.
@@ -404,7 +286,7 @@ Returns comprehensive time-based velocity metrics.
 ]
 ```
 
-### 6. Team Capacity Analysis
+### 14. Team Capacity Analysis
 **GET** `/analytics/gitlab/team-capacity`
 
 Returns team capacity and workload distribution.
@@ -426,7 +308,7 @@ Returns team capacity and workload distribution.
 ]
 ```
 
-### 7. Issue Type Analysis
+### 15. Issue Type Analysis
 **GET** `/analytics/gitlab/issue-types`
 
 Returns performance analysis by issue type.
@@ -448,7 +330,7 @@ Returns performance analysis by issue type.
 ]
 ```
 
-### 8. Priority Analysis
+### 16. Priority Analysis
 **GET** `/analytics/gitlab/priorities`
 
 Returns performance analysis by priority level.
@@ -470,7 +352,7 @@ Returns performance analysis by priority level.
 ]
 ```
 
-### 9. Burndown Chart Data
+### 17. Burndown Chart Data
 **GET** `/analytics/gitlab/burndown/{milestone_id}`
 
 Returns burndown chart data for a specific milestone.
@@ -498,7 +380,7 @@ Returns burndown chart data for a specific milestone.
 
 ## 📊 **Advanced Analytics**
 
-### 10. Lead Time Analysis
+### 18. Lead Time Analysis
 **GET** `/analytics/lead-time`
 
 Returns lead time analysis for all issues.
@@ -516,7 +398,7 @@ Returns lead time analysis for all issues.
 }
 ```
 
-### 11. Throughput Analysis
+### 19. Throughput Analysis
 **GET** `/analytics/throughput?days=30`
 
 Returns throughput analysis for the specified period.
@@ -538,7 +420,7 @@ Returns throughput analysis for the specified period.
 }
 ```
 
-### 12. Defect Rate Analysis
+### 20. Defect Rate Analysis
 **GET** `/analytics/defect-rate`
 
 Returns defect rate analysis.
@@ -563,7 +445,7 @@ Returns defect rate analysis.
 }
 ```
 
-### 13. Velocity Forecasting
+### 21. Velocity Forecasting
 **GET** `/analytics/velocity-forecast?sprints_ahead=3`
 
 Returns velocity forecasting for future sprints.
@@ -587,7 +469,7 @@ Returns velocity forecasting for future sprints.
 }
 ```
 
-### 14. Team Velocity Trends
+### 22. Team Velocity Trends
 **GET** `/analytics/team-velocity-trends`
 
 Returns velocity trends by team member.
@@ -604,7 +486,7 @@ Returns velocity trends by team member.
 }
 ```
 
-### 15. Sprint Health Indicators
+### 23. Sprint Health Indicators
 **GET** `/analytics/sprint-health/{milestone_id}`
 
 Returns comprehensive health indicators for a specific sprint.
@@ -633,7 +515,7 @@ Returns comprehensive health indicators for a specific sprint.
 
 ## 📈 **Dashboard Endpoints**
 
-### 16. Project Overview Dashboard
+### 24. Project Overview Dashboard
 **GET** `/dashboard/overview`
 
 Returns comprehensive project overview.
@@ -660,7 +542,7 @@ Returns comprehensive project overview.
 }
 ```
 
-### 17. Team Dashboard
+### 25. Team Dashboard
 **GET** `/dashboard/team`
 
 Returns team-focused dashboard.
@@ -682,7 +564,7 @@ Returns team-focused dashboard.
 }
 ```
 
-### 18. Sprint Dashboard
+### 26. Sprint Dashboard
 **GET** `/dashboard/sprint`
 
 Returns sprint-focused dashboard.
@@ -710,7 +592,7 @@ Returns sprint-focused dashboard.
 }
 ```
 
-### 19. Project Health Dashboard
+### 27. Project Health Dashboard
 **GET** `/dashboard/health`
 
 Returns project health indicators.
@@ -734,7 +616,7 @@ Returns project health indicators.
 
 ## 🔗 **GitLab Integration**
 
-### 20. Import from GitLab API
+### 28. Import from GitLab API
 **POST** `/import/gitlab`
 
 Import data from GitLab API.
@@ -764,9 +646,232 @@ Import data from GitLab API.
 
 ---
 
+## 🚀 **Project-Specific Endpoints**
+
+### 29. Project Milestones
+**GET** `/analytics/projects/{project_id}/milestones`
+
+Returns milestones for a specific project.
+
+### 30. Project Epics
+**GET** `/analytics/projects/{project_id}/epics`
+
+Returns epics for a specific project.
+
+### 31. Project Epic Progress
+**GET** `/analytics/projects/{project_id}/epic-progress/{epic_id}`
+
+Returns epic progress for a specific project and epic.
+
+### 32. Project Velocity
+**GET** `/analytics/projects/{project_id}/velocity`
+
+Returns velocity analysis for a specific project.
+
+### 33. Project Velocity Stats
+**GET** `/analytics/projects/{project_id}/velocity/stats`
+
+Returns velocity statistics for a specific project.
+
+### 34. Project Velocity Chart
+**GET** `/analytics/projects/{project_id}/velocity/chart`
+
+Returns velocity chart data for a specific project.
+
+### 35. Project GitLab Velocity
+**GET** `/analytics/projects/{project_id}/gitlab/velocity`
+
+Returns GitLab velocity analysis for a specific project.
+
+### 36. Project Team Capacity
+**GET** `/analytics/projects/{project_id}/gitlab/team-capacity`
+
+Returns team capacity analysis for a specific project.
+
+### 37. Project Issue Types
+**GET** `/analytics/projects/{project_id}/gitlab/issue-types`
+
+Returns issue type analysis for a specific project.
+
+### 38. Project Priorities
+**GET** `/analytics/projects/{project_id}/gitlab/priorities`
+
+Returns priority analysis for a specific project.
+
+### 39. Project Burndown
+**GET** `/analytics/projects/{project_id}/gitlab/burndown/{milestone_id}`
+
+Returns burndown chart data for a specific project and milestone.
+
+### 40. Project Lead Time
+**GET** `/analytics/projects/{project_id}/lead-time`
+
+Returns lead time analysis for a specific project.
+
+### 41. Project Throughput
+**GET** `/analytics/projects/{project_id}/throughput`
+
+Returns throughput analysis for a specific project.
+
+### 42. Project Defect Rate
+**GET** `/analytics/projects/{project_id}/defect-rate`
+
+Returns defect rate analysis for a specific project.
+
+### 43. Project Velocity Forecast
+**GET** `/analytics/projects/{project_id}/velocity-forecast`
+
+Returns velocity forecasting for a specific project.
+
+### 44. Project Team Velocity Trends
+**GET** `/analytics/projects/{project_id}/team-velocity-trends`
+
+Returns team velocity trends for a specific project.
+
+### 45. Project Sprint Health
+**GET** `/analytics/projects/{project_id}/sprint-health/{milestone_id}`
+
+Returns sprint health indicators for a specific project and milestone.
+
+### 46. Project Dashboard Overview
+**GET** `/analytics/projects/{project_id}/dashboard/overview`
+
+Returns project overview dashboard for a specific project.
+
+### 47. Project Team Dashboard
+**GET** `/analytics/projects/{project_id}/dashboard/team`
+
+Returns team dashboard for a specific project.
+
+### 48. Project Sprint Dashboard
+**GET** `/analytics/projects/{project_id}/dashboard/sprint`
+
+Returns sprint dashboard for a specific project.
+
+### 49. Project Health Dashboard
+**GET** `/analytics/projects/{project_id}/dashboard/health`
+
+Returns health dashboard for a specific project.
+
+### 50. Project Retrospective
+**GET** `/analytics/projects/{project_id}/retrospective/{sprint_id}`
+
+Returns sprint retrospective analysis for a specific project and sprint.
+
+### 51. Project Retrospective Actions
+**GET** `/analytics/projects/{project_id}/retrospective/actions/{sprint_id}`
+
+Returns retrospective action items for a specific project and sprint.
+
+### 52. Project Retrospective Trends
+**GET** `/analytics/projects/{project_id}/retrospective/trends`
+
+Returns retrospective trends for a specific project.
+
+### 53. Project GitLab Full Data
+**GET** `/analytics/projects/{project_id}/gitlab/full-data`
+
+Returns full GitLab data for a specific project.
+
+### 54. Save GitLab Data to Database
+**POST** `/analytics/projects/{project_id}/gitlab/save-to-database`
+
+Saves GitLab data to database for a specific project.
+
+### 55. Create Custom Epic
+**POST** `/analytics/projects/{project_id}/epics`
+
+Creates a custom epic for a specific project.
+
+### 56. Create Custom Milestone
+**POST** `/analytics/projects/{project_id}/milestones`
+
+Creates a custom milestone for a specific project.
+
+### 57. Available Issues
+**GET** `/analytics/projects/{project_id}/available-issues`
+
+Returns available issues for a specific project.
+
+---
+
+## 🚀 **Advanced Analytics Features**
+
+### 58. Sprint Planning Capacity
+**GET** `/analytics/sprint-planning/capacity`
+
+Returns sprint planning capacity analysis.
+
+### 59. Sprint Planning Commitment
+**GET** `/analytics/sprint-planning/commitment`
+
+Returns sprint planning commitment analysis.
+
+### 60. Quality Metrics
+**GET** `/analytics/quality/metrics`
+
+Returns quality metrics analysis.
+
+### 61. Technical Debt Impact
+**GET** `/analytics/quality/tech-debt-impact`
+
+Returns technical debt impact analysis.
+
+### 62. Sprint Risks
+**GET** `/analytics/risks/sprint/{sprint_id}`
+
+Returns risk analysis for a specific sprint.
+
+### 63. Project Risks
+**GET** `/analytics/risks/project/{project_id}`
+
+Returns risk analysis for a specific project.
+
+### 64. Sprint Retrospective
+**GET** `/analytics/retrospective/{sprint_id}`
+
+Returns sprint retrospective analysis.
+
+### 65. Retrospective Actions
+**GET** `/analytics/retrospective/actions/{sprint_id}`
+
+Returns retrospective action items.
+
+### 66. Retrospective Trends
+**GET** `/analytics/retrospective/trends`
+
+Returns retrospective trends analysis.
+
+### 67. Business Value Metrics
+**GET** `/analytics/business-value/metrics`
+
+Returns business value metrics analysis.
+
+### 68. Backlog Prioritization
+**GET** `/analytics/business-value/backlog-prioritization`
+
+Returns backlog prioritization analysis.
+
+### 69. ROI Trends
+**GET** `/analytics/business-value/roi-trends`
+
+Returns ROI trends analysis.
+
+### 70. Team Collaboration Analysis
+**GET** `/analytics/collaboration/team-analysis`
+
+Returns team collaboration analysis.
+
+### 71. Release Planning Readiness
+**GET** `/analytics/release-planning/readiness/{release_id}`
+
+Returns release planning readiness analysis.
+
+---
+
 ## 📋 **Basic Data Endpoints**
 
-### 21. Epics List
+### 72. Epics List
 **GET** `/epics`
 
 Returns all epics.
@@ -784,7 +889,7 @@ Returns all epics.
 ]
 ```
 
-### 22. Milestones List
+### 73. Milestones List
 **GET** `/milestones`
 
 Returns all milestones.
@@ -802,7 +907,7 @@ Returns all milestones.
 ]
 ```
 
-### 23. Health Check
+### 74. Health Check
 **GET** `/health`
 
 Returns application health status.
@@ -819,7 +924,7 @@ Returns application health status.
 
 ## 🔐 **Authentication Endpoints**
 
-### 24. User Profile
+### 75. User Profile
 **GET** `/auth/me`
 
 Returns current user profile.
@@ -827,14 +932,77 @@ Returns current user profile.
 **Response:**
 ```json
 {
-  "id": "user_123",
-  "email": "user@example.com",
-  "first_name": "John",
-  "last_name": "Doe"
+  "user": {
+    "id": "user_123",
+    "email": "user@example.com",
+    "first_name": "John",
+    "last_name": "Doe"
+  }
 }
 ```
 
-### 25. Token Verification
+### 76. Protected Route Example
+**GET** `/auth/protected`
+
+Example of a protected route.
+
+**Response:**
+```json
+{
+  "message": "This is a protected route",
+  "user": {
+    "id": "user_123",
+    "email": "user@example.com"
+  }
+}
+```
+
+### 77. Optional Auth Route
+**GET** `/auth/optional`
+
+Example of an optionally protected route.
+
+**Response:**
+```json
+{
+  "message": "You are authenticated",
+  "user": {
+    "id": "user_123",
+    "email": "user@example.com"
+  }
+}
+```
+
+### 78. Generate JWT Token
+**POST** `/auth/generate-jwt`
+
+Generates JWT token for development testing.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "user": {
+    "id": "user_user_example_com",
+    "email": "user@example.com",
+    "first_name": "Test",
+    "last_name": "User"
+  },
+  "expires_in": 86400,
+  "token_type": "Bearer"
+}
+```
+
+### 79. Token Verification
 **POST** `/auth/verify`
 
 Verifies JWT token.
@@ -852,78 +1020,110 @@ Verifies JWT token.
   "valid": true,
   "user": {
     "id": "user_123",
-    "email": "user@example.com"
-  }
-}
-```
-
-### 26. Protected Route Example
-**GET** `/auth/protected`
-
-Example of a protected route.
-
-**Response:**
-```json
-{
-  "message": "This is a protected route",
-  "user": {
-    "id": "user_123",
-    "email": "user@example.com"
-  }
-}
-```
-
-### 27. Optional Auth Route
-**GET** `/auth/optional`
-
-Example of an optionally protected route.
-
-**Response:**
-```json
-{
-  "message": "This route works with or without authentication",
-  "authenticated": true,
-  "user": {
-    "id": "user_123",
-    "email": "user@example.com"
-  }
+    "email": "user@example.com",
+    "first_name": "John",
+    "last_name": "Doe"
+  },
+  "expires_at": 1735689600
 }
 ```
 
 ---
 
-## 📋 **Data Models**
+## 📊 **Complete API Summary**
 
-### Issue Model
+### **Total Endpoints: 79**
+
+**Core Analytics (12 endpoints):**
+- Projects, Milestones, Epics
+- Epic Success & Status
+- Milestone Success
+- Developer Success & Summary
+- Velocity Analysis & Charts
+- Epic Progress & Period Success
+
+**GitLab Time-Based Analytics (5 endpoints):**
+- GitLab Velocity
+- Team Capacity
+- Issue Types
+- Priorities
+- Burndown Charts
+
+**Advanced Analytics (6 endpoints):**
+- Lead Time Analysis
+- Throughput Analysis
+- Defect Rate Analysis
+- Velocity Forecasting
+- Team Velocity Trends
+- Sprint Health Indicators
+
+**Dashboard Endpoints (4 endpoints):**
+- Project Overview
+- Team Dashboard
+- Sprint Dashboard
+- Health Dashboard
+
+**Project-Specific Endpoints (29 endpoints):**
+- All core analytics with project context
+- All GitLab analytics with project context
+- All advanced analytics with project context
+- All dashboard endpoints with project context
+- Project-specific retrospective analysis
+- GitLab integration for specific projects
+- Custom epic/milestone creation
+
+**Advanced Analytics Features (14 endpoints):**
+- Sprint Planning (Capacity & Commitment)
+- Quality Metrics & Technical Debt
+- Risk Analysis (Sprint & Project)
+- Retrospective Analysis & Trends
+- Business Value Metrics & ROI
+- Team Collaboration Analysis
+- Release Planning Readiness
+
+**Basic Data (3 endpoints):**
+- Epics List
+- Milestones List
+- Health Check
+
+**Authentication (5 endpoints):**
+- User Profile
+- Protected Routes
+- Optional Auth
+- JWT Generation
+- Token Verification
+
+**GitLab Integration (1 endpoint):**
+- Import from GitLab API
+
+---
+
+## 📊 **Key Metrics Explained**
+
+- **Velocity**: Hours of work completed per sprint
+- **Lead Time**: Days from issue creation to completion
+- **Throughput**: Number of issues completed per time period
+- **Defect Rate**: Percentage of issues that are bugs
+- **Estimation Accuracy**: How well time estimates match actual time spent
+- **Completion Rate**: Percentage of issues completed in a sprint
+- **Team Capacity**: Available hours per team member
+- **Sprint Health**: Overall sprint performance indicators
+
+---
+
+## 🔧 **Error Handling**
+
+All endpoints return appropriate HTTP status codes:
+- `200`: Success
+- `400`: Bad Request
+- `401`: Unauthorized (missing or invalid JWT)
+- `404`: Not Found
+- `500`: Internal Server Error
+
+Error responses include a descriptive message:
 ```json
 {
-  "id": 101,
-  "title": "Task A",
-  "state": "opened",
-  "assignee": "Nikos",
-  "reporter": "Nikos",
-  "created_date": "2025-07-29T10:00:00",
-  "updated_date": "2025-07-29T10:00:00",
-  "closed_date": null,
-  "time_estimate": 8.0,
-  "time_spent": 0.0,
-  "labels": ["frontend", "bug"],
-  "issue_type": "bug",
-  "priority": "high",
-  "milestone_id": 1,
-  "project_id": 1
-}
-```
-
-### Milestone Model
-```json
-{
-  "id": 1,
-  "title": "Sprint 1",
-  "start_date": "2025-07-29",
-  "due_date": "2025-08-09",
-  "project_id": 1,
-  "issues": [...]
+  "error": "Milestone not found"
 }
 ```
 
@@ -955,86 +1155,9 @@ Example of an optionally protected route.
         http://localhost:5001/import/gitlab
    ```
 
----
-
-## 📊 **Complete API Summary**
-
-### **Total Endpoints: 32**
-
-**Core Analytics (8 endpoints):**
-- Velocity Analysis & Charts
-- Epic Success & Status
-- Milestone Success & Lists
-- Developer Success & Summary
-- Period Success Check
-
-**Retrospective Analytics (5 endpoints):**
-- Sprint Retrospective Analysis
-- Retrospective Trends
-- Action Item Effectiveness Tracking
-- Project-specific Retrospective Analysis
-- Project-specific Retrospective Trends
-
-**GitLab Time-Based Analytics (5 endpoints):**
-- Time-based Velocity
-- Team Capacity
-- Issue Types
-- Priorities
-- Burndown Charts
-
-**Advanced Analytics (6 endpoints):**
-- Lead Time Analysis
-- Throughput Analysis
-- Defect Rate Analysis
-- Velocity Forecasting
-- Team Velocity Trends
-- Sprint Health Indicators
-
-**Dashboard Endpoints (4 endpoints):**
-- Project Overview
-- Team Dashboard
-- Sprint Dashboard
-- Health Dashboard
-
-**Basic Data (3 endpoints):**
-- Epics List
-- Milestones List
-- Health Check
-
-**Authentication (4 endpoints):**
-- User Profile
-- Token Verification
-- Protected Routes
-- Optional Auth
-
-**GitLab Integration (1 endpoint):**
-- Import from GitLab API
-
----
-
-## 📊 **Key Metrics Explained**
-
-- **Velocity**: Hours of work completed per sprint
-- **Lead Time**: Days from issue creation to completion
-- **Throughput**: Number of issues completed per time period
-- **Defect Rate**: Percentage of issues that are bugs
-- **Estimation Accuracy**: How well time estimates match actual time spent
-- **Completion Rate**: Percentage of issues completed in a sprint
-
----
-
-## 🔧 **Error Handling**
-
-All endpoints return appropriate HTTP status codes:
-- `200`: Success
-- `400`: Bad Request
-- `401`: Unauthorized (missing or invalid JWT)
-- `404`: Not Found
-- `500`: Internal Server Error
-
-Error responses include a descriptive message:
-```json
-{
-  "error": "Milestone not found"
-}
-``` 
+4. **Generate JWT for testing:**
+   ```bash
+   curl -X POST -H "Content-Type: application/json" \
+        -d '{"email": "test@example.com", "password": "password123"}' \
+        http://localhost:5001/auth/generate-jwt
+   ```
