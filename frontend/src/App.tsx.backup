@@ -1,5 +1,6 @@
 import './App.css'
 import { Routes, Route } from 'react-router-dom';
+import { useAuth } from '@clerk/clerk-react';
 import { SignIn } from '@clerk/clerk-react';
 import Layout from './components/Layout';
 import Home from './pages/Home';
@@ -15,14 +16,14 @@ import QualityAnalytics from './features/quality/QualityAnalytics';
 import RiskAssessment from './features/risk-assessment/RiskAssessment';
 import RetrospectiveAnalytics from './features/retrospective/RetrospectiveAnalytics';
 import NotFound from './pages/NotFound';
+import DevTokenButton from './components/DevTokenButton';
 import { ProjectProvider } from './contexts/ProjectContext';
-import { useAuth } from './hooks/useAuth';
 
 function App() {
-  const { isSignedIn, isLoading, tokenReady } = useAuth();
+  const { isSignedIn, isLoaded } = useAuth();
 
-  // Show loading while authentication is initializing or token is not ready
-  if (isLoading || (isSignedIn && !tokenReady)) {
+  // Show loading while Clerk is initializing
+  if (!isLoaded) {
     return (
       <div style={{ 
         display: 'flex', 
@@ -62,26 +63,29 @@ function App() {
   }
 
   return (
-    <ProjectProvider>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="velocity" element={<Velocity />} />
-          {/* <Route path="epics" element={<EpicProgress />} /> */}
-          <Route path="epic-chart" element={<EpicProgressChart />} />
-          <Route path="team" element={<TeamDashboard />} />
-          <Route path="sprint" element={<SprintDashboard />} />
-          <Route path="sprint-planning" element={<SprintPlanning />} />
-          <Route path="quality" element={<QualityAnalytics />} />
-          <Route path="risk-assessment" element={<RiskAssessment />} />
-          <Route path="retrospective" element={<RetrospectiveAnalytics />} />
-          <Route path="health" element={<HealthDashboard />} />
-          <Route path="gitlab-integration" element={<GitLabIntegration />} />
-          <Route path="*" element={<NotFound />} />
-        </Route>
-      </Routes>
-    </ProjectProvider>
+    <>
+      <ProjectProvider>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Home />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="velocity" element={<Velocity />} />
+            {/* <Route path="epics" element={<EpicProgress />} /> */}
+            <Route path="epic-chart" element={<EpicProgressChart />} />
+            <Route path="team" element={<TeamDashboard />} />
+            <Route path="sprint" element={<SprintDashboard />} />
+            <Route path="sprint-planning" element={<SprintPlanning />} />
+            <Route path="quality" element={<QualityAnalytics />} />
+            <Route path="risk-assessment" element={<RiskAssessment />} />
+            <Route path="retrospective" element={<RetrospectiveAnalytics />} />
+            <Route path="health" element={<HealthDashboard />} />
+            <Route path="gitlab-integration" element={<GitLabIntegration />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
+        <DevTokenButton />
+      </ProjectProvider>
+    </>
   )
 }
 
