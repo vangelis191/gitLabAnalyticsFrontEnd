@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Box, VStack, HStack, Text, Spinner } from '@chakra-ui/react';
+import { Box, VStack, HStack, Text, Spinner, Badge } from '@chakra-ui/react';
 import GitLabAnalyticsAPI, { type DashboardOverview } from '../../services/api';
 import { useProject } from '../../hooks/useProject';
+import { useAuth } from '../../hooks/useAuth';
 
 interface Activity {
   id: number;
@@ -14,6 +15,7 @@ interface Activity {
 
 const Dashboard: React.FC = () => {
   const { selectedProject } = useProject();
+  const { isSignedIn, user } = useAuth();
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,9 +79,21 @@ const Dashboard: React.FC = () => {
   return (
     <Box p="6">
       <VStack gap="6" align="stretch">
-        <Text fontSize="2xl" fontWeight="bold" color="gray.800">
-          Dashboard Overview
-        </Text>
+        <HStack justify="space-between" align="center">
+          <Text fontSize="2xl" fontWeight="bold" color="gray.800">
+            Dashboard Overview
+          </Text>
+          <HStack gap="2">
+            <Badge colorScheme={isSignedIn ? "green" : "red"}>
+              {isSignedIn ? "Authenticated" : "Not Authenticated"}
+            </Badge>
+            {user && (
+              <Badge colorScheme="blue">
+                {user.emailAddresses[0]?.emailAddress}
+              </Badge>
+            )}
+          </HStack>
+        </HStack>
 
         {/* Summary Stats */}
         <Box p="6" bg="white" borderRadius="lg" boxShadow="sm" border="1px solid" borderColor="gray.200">

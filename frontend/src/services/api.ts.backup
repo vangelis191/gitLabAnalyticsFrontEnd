@@ -11,52 +11,17 @@ const apiClient = axios.create({
   },
 });
 
-// Add response interceptor to handle token expiration
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    if (error.response?.status === 401) {
-      console.log('🔒 Token expired or invalid, clearing from localStorage');
-      localStorage.removeItem('clerk-token');
-      // You could also trigger a token refresh here
-    }
-    return Promise.reject(error);
-  }
-);
+
 
 // Helper function to get auth headers
 const getAuthHeaders = () => {
-  const tokenData = localStorage.getItem('clerk-token');
-  console.log('🔍DEBUG: Raw token data from localStorage:', tokenData);
-  
-  if (tokenData) {
-    try {
-      // Try to parse as JSON first
-      const parsed = JSON.parse(tokenData);
-      console.log(' DEBUG: Parsed token data:', parsed);
-      
-      // If it's an object, look for the token property
-      const token = typeof parsed === 'object' ? parsed.token || parsed.jwt || parsed.access_token : parsed;
-      console.log(' DEBUG: Final token to use:', token);
-      
-      if (token) {
-        return {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        };
-      }
-    } catch (error: unknown) {
-      console.log(' DEBUG: Error parsing token:', error instanceof Error ? error.message : 'Unknown error');
-      console.log(' DEBUG: Not JSON, using as string:', tokenData);
-      // If it's not JSON, use it as a string
-      return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${tokenData}`
-      };
-    }
+  const token = localStorage.getItem('clerk-token');
+  if (token) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
   }
-  
-  console.log(' DEBUG: No token found');
   return {
     'Content-Type': 'application/json'
   };
@@ -444,7 +409,7 @@ export class GitLabAnalyticsAPI {
 
   // Core Analytics
   static async getVelocityStats(backlog?: number, projectId?: number): Promise<VelocityStats> {
-    const params: Record<string, number> = {};
+    const params: any = {};
     if (backlog) params.backlog = backlog;
     if (projectId) params.project_id = projectId;
     
@@ -470,10 +435,7 @@ export class GitLabAnalyticsAPI {
     actual: number;
   }>> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get(`/epic/progress/${epicId}`, { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get(`/epic/progress/${epicId}`, { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
@@ -483,171 +445,117 @@ export class GitLabAnalyticsAPI {
     toDate: string,
     projectId?: number
   ): Promise<PeriodSuccess> {
-    const params: Record<string, string | number> = { from_date: fromDate, to_date: toDate };
+    const params: any = { from_date: fromDate, to_date: toDate };
     if (projectId) params.project_id = projectId;
-    const response = await apiClient.get(`/analytics/period-success/${epicId}`, { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get(`/analytics/period-success/${epicId}`, { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   static async getEpicSuccess(projectId?: number): Promise<EpicSuccess[]> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/analytics/epic-success', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/analytics/epic-success', { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   static async getDeveloperSuccess(projectId?: number): Promise<DeveloperSuccess[]> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/analytics/developer-success', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/analytics/developer-success', { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   static async getDeveloperSummary(projectId?: number): Promise<DeveloperSummary[]> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/analytics/developer-summary', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/analytics/developer-summary', { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   static async getEpicStatus(projectId?: number): Promise<EpicStatus[]> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/analytics/epic-status', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/analytics/epic-status', { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   static async getMilestones(projectId?: number): Promise<Milestone[]> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/milestones', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/milestones', { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   static async getMilestoneSuccess(projectId?: number): Promise<MilestoneSuccess[]> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/analytics/milestone-success', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/analytics/milestone-success', { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   // GitLab Time-Based Analytics
   static async getGitLabVelocity(projectId?: number): Promise<GitLabVelocity[]> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/analytics/gitlab/velocity', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/analytics/gitlab/velocity', { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   static async getTeamCapacity(projectId?: number): Promise<TeamCapacity[]> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/analytics/team-capacity', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/analytics/team-capacity', { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   static async getIssueTypeAnalysis(projectId?: number): Promise<IssueTypeAnalysis[]> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/analytics/issue-type-analysis', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/analytics/issue-type-analysis', { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   static async getPriorityAnalysis(projectId?: number): Promise<PriorityAnalysis[]> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/analytics/priority-analysis', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/analytics/priority-analysis', { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   static async getBurndownData(milestoneId: number, projectId?: number): Promise<BurndownData> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get(`/analytics/burndown/${milestoneId}`, { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get(`/analytics/burndown/${milestoneId}`, { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   // Advanced Analytics
   static async getLeadTimeAnalysis(projectId?: number): Promise<LeadTimeAnalysis> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/analytics/lead-time', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/analytics/lead-time', { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   static async getThroughputAnalysis(days?: number, projectId?: number): Promise<ThroughputAnalysis> {
-    const params: Record<string, number> = {};
+    const params: any = {};
     if (days) params.days = days;
     if (projectId) params.project_id = projectId;
-    const response = await apiClient.get('/analytics/throughput', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/analytics/throughput', { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   static async getDefectRateAnalysis(projectId?: number): Promise<DefectRateAnalysis> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/analytics/defect-rate', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/analytics/defect-rate', { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   static async getVelocityForecast(sprintsAhead?: number, projectId?: number): Promise<VelocityForecast> {
-    const params: Record<string, number> = {};
+    const params: any = {};
     if (sprintsAhead) params.sprints_ahead = sprintsAhead;
     if (projectId) params.project_id = projectId;
-    const response = await apiClient.get('/analytics/velocity-forecast', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/analytics/velocity-forecast', { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   static async getTeamVelocityTrends(projectId?: number): Promise<TeamVelocityTrends> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/analytics/team-velocity-trends', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/analytics/team-velocity-trends', { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   static async getSprintHealth(milestoneId: number, projectId?: number): Promise<SprintHealth> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get(`/analytics/sprint-health/${milestoneId}`, { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get(`/analytics/sprint-health/${milestoneId}`, { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
@@ -663,38 +571,26 @@ export class GitLabAnalyticsAPI {
 
   static async getTeamDashboard(projectId?: number): Promise<TeamDashboard> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/dashboard/team', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/dashboard/team', { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   static async getSprintDashboard(projectId?: number): Promise<SprintDashboard> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/dashboard/sprint', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/dashboard/sprint', { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   static async getHealthDashboard(projectId?: number): Promise<HealthDashboard> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/dashboard/health', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/dashboard/health', { params }, { headers: getAuthHeaders() });
     return response.data;
   }
 
   // Basic Data Endpoints
   static async getEpics(projectId?: number): Promise<Epic[]> {
     const params = projectId ? { project_id: projectId } : {};
-    const response = await apiClient.get('/analytics/epic-status', { 
-      params,
-      headers: getAuthHeaders()
-    });
+    const response = await apiClient.get('/analytics/epic-status', { params }, { headers: getAuthHeaders() });
     return response.data.map((epic: { epic_id: number; epic_title: string; start_date: string; due_date: string }) => ({
       id: epic.epic_id,
       title: epic.epic_title,
@@ -704,7 +600,7 @@ export class GitLabAnalyticsAPI {
   }
 
   static async getProjects(): Promise<Project[]> {
-    const response = await apiClient.get('/analytics/projects', { headers: getAuthHeaders() });
+    const response = await apiClient.get('/analytics/projects', { headers: getAuthHeaders(, { headers: getAuthHeaders() }) });
     return response.data;
   }
 
@@ -725,7 +621,7 @@ export class GitLabAnalyticsAPI {
 
   // GitLab Integration
   static async importFromGitLab(data: GitLabImportRequest): Promise<GitLabImportResponse> {
-    const response = await apiClient.post('/import/gitlab', data, { headers: getAuthHeaders() });
+    const response = await apiClient.post('/import/gitlab', data);
     return response.data;
   }
 
@@ -736,7 +632,7 @@ export class GitLabAnalyticsAPI {
   }
 
   static async verifyToken(token: string): Promise<TokenVerification> {
-    const response = await apiClient.post('/auth/verify', { token }, { headers: getAuthHeaders() });
+    const response = await apiClient.post('/auth/verify', { token });
     return response.data;
   }
 
@@ -751,4 +647,4 @@ export class GitLabAnalyticsAPI {
   }
 }
 
-export default GitLabAnalyticsAPI; 
+export default GitLabAnalyticsAPI;

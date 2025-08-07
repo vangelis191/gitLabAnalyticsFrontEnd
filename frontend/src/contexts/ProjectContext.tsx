@@ -14,9 +14,11 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
 
   const fetchProjects = async () => {
     try {
+      console.log('🔄 fetchProjects - Starting...');
       setLoading(true);
       setError(null);
       const projectsData = await GitLabAnalyticsAPI.getProjects();
+      console.log('✅ fetchProjects - Success:', projectsData);
       setProjects(projectsData);
       
       // Auto-select first project if none selected

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, Outlet } from 'react-router-dom';
-import { useAuth, useUser } from '@clerk/clerk-react';
+import { useUser } from '@clerk/clerk-react';
 import {
   Box,
   Button,
@@ -16,6 +16,7 @@ import {
 } from '@chakra-ui/react';
 import { FiMenu, FiBarChart, FiTrendingUp, FiTarget, FiHome, FiUsers, FiCalendar, FiActivity, FiLogOut, FiPieChart, FiGitBranch, FiCheckSquare, FiShield, FiAlertTriangle, FiRefreshCw } from 'react-icons/fi';
 import ProjectSelector from './ProjectSelector';
+import { useAuth } from '../hooks/useAuth';
 
 const Layout: React.FC = () => {
   const { signOut } = useAuth();
@@ -95,7 +96,13 @@ const Layout: React.FC = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => signOut()}
+              onClick={async () => {
+                try {
+                  await signOut();
+                } catch (error) {
+                  console.error('Error during sign out:', error);
+                }
+              }}
             >
               <Icon as={FiLogOut} mr={2} />
               Logout
