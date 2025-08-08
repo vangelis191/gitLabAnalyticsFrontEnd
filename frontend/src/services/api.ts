@@ -301,6 +301,28 @@ export interface SprintHealth {
   days_remaining: number;
 }
 
+// Sprint Planning Interfaces
+export interface SprintPlanningCapacity {
+  [member: string]: {
+    historical_velocity: number;
+    available_hours: number;
+    recommended_capacity: number;
+    sprint_duration: number;
+    team_member: string;
+  };
+}
+
+export interface SprintPlanningCommitment {
+  total_capacity: number;
+  total_estimated_effort: number;
+  recommended_commitment: number;
+  commitment_probability: number;
+  risk_level: 'low' | 'medium' | 'high';
+  accuracy_factor: number;
+  sprint_duration: number;
+  team_size: number;
+}
+
 export interface DashboardOverview {
   summary: {
     total_projects: number;
@@ -683,6 +705,35 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/dashboard/health', { 
       params,
+      headers: getAuthHeaders()
+    });
+    return response.data;
+  }
+
+  // Sprint Planning Endpoints
+  static async getSprintPlanningCapacity(sprintDuration: number, teamMembers: string[], projectId?: number): Promise<SprintPlanningCapacity> {
+    const params = new URLSearchParams();
+    params.append('sprint_duration', sprintDuration.toString());
+    teamMembers.forEach((member) => {
+      params.append('team_members', member);
+    });
+    if (projectId) params.append('project_id', projectId.toString());
+    
+    const response = await apiClient.get(`/analytics/sprint-planning/capacity?${params.toString()}`, { 
+      headers: getAuthHeaders()
+    });
+    return response.data;
+  }
+
+  static async getSprintPlanningCommitment(sprintDuration: number, teamMembers: string[], projectId?: number): Promise<SprintPlanningCommitment> {
+    const params = new URLSearchParams();
+    params.append('sprint_duration', sprintDuration.toString());
+    teamMembers.forEach((member) => {
+      params.append('team_members', member);
+    });
+    if (projectId) params.append('project_id', projectId.toString());
+    
+    const response = await apiClient.get(`/analytics/sprint-planning/commitment?${params.toString()}`, { 
       headers: getAuthHeaders()
     });
     return response.data;

@@ -10,6 +10,7 @@ import {
   Heading,
 } from '@chakra-ui/react';
 import { useProject } from '../../hooks/useProject';
+import GitLabAnalyticsAPI from '../../services/api';
 
 interface TeamCapacity {
   [member: string]: {
@@ -37,13 +38,31 @@ const SprintPlanning: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Mock team members - in real app, this would come from API
-  const mockTeamMembers = ['John Doe', 'Jane Smith', 'Mike Johnson', 'Sarah Wilson', 'Alex Brown'];
-
+  // Get team members from API when project is selected
   useEffect(() => {
-    if (selectedProject) {
-      setTeamMembers(mockTeamMembers);
-    }
+    const fetchTeamMembers = async () => {
+      if (!selectedProject) return;
+
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Get team capacity data which includes team members
+        const teamCapacityData = await GitLabAnalyticsAPI.getTeamCapacity(selectedProject.id);
+        console.log('🔍 Debug - Team Capacity Data:', teamCapacityData);
+        const members = teamCapacityData.map(member => member.team_member);
+        console.log('🔍 Debug - Extracted Team Members:', members);
+        setTeamMembers(members);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch team members';
+        setError(errorMessage);
+        console.error('Error fetching team members:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeamMembers();
   }, [selectedProject]);
 
   const calculateCapacity = async () => {
@@ -53,23 +72,43 @@ const SprintPlanning: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // Mock capacity calculation for demo
-      const mockCapacity: TeamCapacity = {};
-      teamMembers.forEach(member => {
-        const historicalVelocity = Math.floor(Math.random() * 20) + 10; // 10-30 hours
-        const availableHours = sprintDuration * 40 * 0.8; // 80% of 40 hours per week
-        mockCapacity[member] = {
-          historical_velocity: historicalVelocity,
-          available_hours: availableHours,
-          recommended_capacity: Math.min(historicalVelocity, availableHours)
-        };
-      });
+      // Get real capacity data from API
+      const apiCapacityData = await GitLabAnalyticsAPI.getSprintPlanningCapacity(sprintDuration, teamMembers, selectedProject!.id);
+      
+      console.log('🔍 Debug - Team Members:', teamMembers);
+      console.log('🔍 Debug - API Capacity Data:', apiCapacityData);
+      
+      // Transform API data to match component interface
+      const transformedCapacity: TeamCapacity = {};
+      
+      // Handle both array and object formats from API
+      if (Array.isArray(apiCapacityData)) {
+        // API returned array format
+        apiCapacityData.forEach((memberData) => {
+          transformedCapacity[memberData.team_member] = {
+            historical_velocity: memberData.velocity_hours || 0,
+            available_hours: memberData.total_estimated_hours || 0,
+            recommended_capacity: Math.min(memberData.velocity_hours || 0, memberData.total_estimated_hours || 0)
+          };
+        });
+      } else {
+        // API returned object format
+        Object.entries(apiCapacityData).forEach(([member, data]) => {
+          transformedCapacity[member] = {
+            historical_velocity: data.historical_velocity,
+            available_hours: data.available_hours,
+            recommended_capacity: data.recommended_capacity
+          };
+        });
+      }
 
-      setCapacity(mockCapacity);
+      console.log('🔍 Debug - Transformed Capacity:', transformedCapacity);
+      setCapacity(transformedCapacity);
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to calculate capacity';
       setError(errorMessage);
+      console.error('Error calculating capacity:', err);
     } finally {
       setLoading(false);
     }
@@ -82,26 +121,25 @@ const SprintPlanning: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // Mock commitment prediction
-      const totalCapacity = Object.values(capacity).reduce((sum, data) => sum + data.recommended_capacity, 0);
-      const totalEstimatedEffort = totalCapacity * 1.2; // 20% more than capacity
-      const recommendedCommitment = totalCapacity * 0.8; // 80% of capacity
-      const commitmentProbability = recommendedCommitment / totalEstimatedEffort;
+      // Get real commitment data from API
+      const apiCommitmentData = await GitLabAnalyticsAPI.getSprintPlanningCommitment(sprintDuration, teamMembers, selectedProject!.id);
       
-      const mockCommitment: SprintCommitment = {
-        total_capacity: totalCapacity,
-        total_estimated_effort: totalEstimatedEffort,
-        recommended_commitment: recommendedCommitment,
-        commitment_probability: commitmentProbability,
-        risk_level: commitmentProbability < 0.8 ? 'high' : commitmentProbability < 0.95 ? 'medium' : 'low',
-        accuracy_factor: 0.85
+      // Transform API data to match component interface
+      const transformedCommitment: SprintCommitment = {
+        total_capacity: apiCommitmentData.total_capacity,
+        total_estimated_effort: apiCommitmentData.total_estimated_effort,
+        recommended_commitment: apiCommitmentData.recommended_commitment,
+        commitment_probability: apiCommitmentData.commitment_probability,
+        risk_level: apiCommitmentData.risk_level,
+        accuracy_factor: apiCommitmentData.accuracy_factor
       };
 
-      setCommitment(mockCommitment);
+      setCommitment(transformedCommitment);
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to predict commitment';
       setError(errorMessage);
+      console.error('Error predicting commitment:', err);
     } finally {
       setLoading(false);
     }
