@@ -101,30 +101,51 @@ const IssuesManagement: React.FC = () => {
       console.log('🔄 Loading issues...', { selectedProject });
       setLoading(true);
       setError(null);
+      
       try {
-        let issuesData;
-        if (selectedProject) {
-          console.log('📋 Fetching project issues for project:', selectedProject.id);
-          issuesData = await GitLabAnalyticsAPI.getProjectIssues(selectedProject.id);
-        } else {
-          console.log('📋 Fetching all issues...');
-          issuesData = await GitLabAnalyticsAPI.getAllIssues();
-        }
-        console.log('✅ Issues loaded:', issuesData);
+        // Always try to load all issues first, regardless of selected project
+        console.log('📋 Fetching all issues...');
+        const issuesData = await GitLabAnalyticsAPI.getAllIssues();
+        console.log('✅ Raw API response:', issuesData);
         
-        // Ensure we always have an array
+        // Handle different response formats
+        let finalIssues: Issue[] = [];
+        
         if (Array.isArray(issuesData)) {
-          setIssues(issuesData);
-        } else if (issuesData && typeof issuesData === 'object' && 'issues' in issuesData) {
-          const response = issuesData as { issues: Issue[] };
-          if (Array.isArray(response.issues)) {
-            setIssues(response.issues);
+          console.log('📋 Response is array, using directly');
+          finalIssues = issuesData;
+        } else if (issuesData && typeof issuesData === 'object') {
+          const response = issuesData as Record<string, unknown>;
+          if ('issues' in response && Array.isArray(response.issues)) {
+            console.log('📋 Response has issues property, extracting');
+            finalIssues = response.issues as Issue[];
+          } else if ('data' in response && Array.isArray(response.data)) {
+            console.log('📋 Response has data property, extracting');
+            finalIssues = response.data as Issue[];
           } else {
-            setIssues([]);
+            console.log('📋 Response is object but no recognizable array property');
+            finalIssues = [];
           }
         } else {
-          setIssues([]);
+          console.log('📋 Response is not array or object');
+          finalIssues = [];
         }
+        
+        console.log('✅ Final issues array:', finalIssues.length, 'issues');
+        
+        // If we have a selected project, filter to that project's issues
+        if (selectedProject && finalIssues.length > 0) {
+          const projectIssues = finalIssues.filter(issue => {
+            const issueWithProjectId = issue as Issue & { project_id?: number };
+            return issue.project?.id === selectedProject.id || 
+                   issueWithProjectId.project_id === selectedProject.id;
+          });
+          console.log(`📋 Filtered to project ${selectedProject.id}:`, projectIssues.length, 'issues');
+          setIssues(projectIssues);
+        } else {
+          setIssues(finalIssues);
+        }
+        
       } catch (error) {
         console.error('❌ Error loading issues:', error);
         const errorMessage = error instanceof Error ? error.message : 'Failed to load issues';
@@ -224,6 +245,26 @@ const IssuesManagement: React.FC = () => {
     });
   };
 
+  // Manual reload function for debugging
+  const manualReload = async () => {
+    console.log('🔄 Manual reload triggered');
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log('📋 Manual: Fetching all issues...');
+      const issuesData = await GitLabAnalyticsAPI.getAllIssues();
+      console.log('✅ Manual: Raw API response:', issuesData);
+      setIssues(Array.isArray(issuesData) ? issuesData : []);
+    } catch (error) {
+      console.error('❌ Manual: Error loading issues:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load issues');
+      setIssues([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getStateColor = (state: string) => {
     switch (state) {
       case 'opened': return 'green';
@@ -294,6 +335,7 @@ const IssuesManagement: React.FC = () => {
               {issues.length !== filteredIssues.length && (
                 <Text fontSize="xs" color="gray.500">({issues.length} total loaded)</Text>
               )}
+              <Text fontSize="xs" color="gray.400">Debug: {loading ? 'Loading...' : `${issues.length} raw issues loaded`}</Text>
             </Box>
             <Box bg="white" p={4} borderRadius="lg" boxShadow="sm" border="1px solid" borderColor="gray.200">
               <Text fontSize="sm" color="gray.600" fontWeight="medium">Open Issues</Text>
@@ -324,9 +366,14 @@ const IssuesManagement: React.FC = () => {
                 <Icon as={FiFilter} color="gray.600" />
                 <Text fontWeight="semibold" color="gray.700">Filters</Text>
               </HStack>
-              <Button size="sm" variant="ghost" onClick={clearAllFilters}>
-                Clear All
-              </Button>
+              <HStack gap={2}>
+                <Button size="sm" variant="ghost" onClick={manualReload} loading={loading}>
+                  🔄 Reload Issues
+                </Button>
+                <Button size="sm" variant="ghost" onClick={clearAllFilters}>
+                  Clear All
+                </Button>
+              </HStack>
             </HStack>
 
             {/* Filter Controls */}
@@ -751,3 +798,4 @@ const IssuesManagement: React.FC = () => {
 };
 
 export default IssuesManagement;
+
