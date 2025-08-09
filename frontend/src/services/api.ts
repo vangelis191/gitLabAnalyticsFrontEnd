@@ -11,56 +11,53 @@ const apiClient = axios.create({
   },
 });
 
-// Add response interceptor to handle token expiration
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    if (error.response?.status === 401) {
-      console.log('🔒 Token expired or invalid, clearing from localStorage');
-      localStorage.removeItem('clerk-token');
-      // You could also trigger a token refresh here
+// Add request interceptor to add fresh token to each request
+apiClient.interceptors.request.use(
+  async (config) => {
+    // Get fresh token from Clerk for each request
+    const getTokenFunction = (window as unknown as { __clerkGetToken?: () => Promise<string | null> }).__clerkGetToken;
+    
+    if (getTokenFunction) {
+      try {
+        const token = await getTokenFunction();
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        } else {
+          console.warn('No token received from Clerk getToken()');
+        }
+      } catch (error) {
+        console.error('Error getting fresh token for request:', error);
+      }
+    } else {
+      // Fallback: try localStorage for backward compatibility
+      const storedToken = localStorage.getItem('clerk-token');
+      if (storedToken) {
+        config.headers.Authorization = `Bearer ${storedToken}`;
+        console.log('Using fallback token from localStorage');
+      } else {
+        console.warn('No getToken function available and no localStorage token found');
+      }
     }
+    
+    return config;
+  },
+  (error) => {
     return Promise.reject(error);
   }
 );
 
-// Helper function to get auth headers
-const getAuthHeaders = () => {
-  const tokenData = localStorage.getItem('clerk-token');
-  console.log('🔍DEBUG: Raw token data from localStorage:', tokenData);
-  
-  if (tokenData) {
-    try {
-      // Try to parse as JSON first
-      const parsed = JSON.parse(tokenData);
-      console.log(' DEBUG: Parsed token data:', parsed);
-      
-      // If it's an object, look for the token property
-      const token = typeof parsed === 'object' ? parsed.token || parsed.jwt || parsed.access_token : parsed;
-      console.log(' DEBUG: Final token to use:', token);
-      
-      if (token) {
-        return {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        };
-      }
-    } catch (error: unknown) {
-      console.log(' DEBUG: Error parsing token:', error instanceof Error ? error.message : 'Unknown error');
-      console.log(' DEBUG: Not JSON, using as string:', tokenData);
-      // If it's not JSON, use it as a string
-      return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${tokenData}`
-      };
+// Add response interceptor for error handling
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      console.log('🔒 401 Unauthorized - user may need to re-authenticate');
+      // Clear any cached tokens and let Clerk handle re-authentication
+      localStorage.removeItem('clerk-token');
     }
+    return Promise.reject(error);
   }
-  
-  console.log(' DEBUG: No token found');
-  return {
-    'Content-Type': 'application/json'
-  };
-};
+);
 
 // Types for API responses
 export interface Sprint {
@@ -460,7 +457,7 @@ export class GitLabAnalyticsAPI {
 
   // Health Check
   static async healthCheck() {
-    const response = await apiClient.get('/health', { headers: getAuthHeaders() });
+    const response = await apiClient.get('/health');
     return response.data;
   }
 
@@ -471,8 +468,7 @@ export class GitLabAnalyticsAPI {
     if (projectId) params.project_id = projectId;
     
     const response = await apiClient.get('/analytics/velocity/stats', { 
-      params,
-      headers: getAuthHeaders()
+      params
     });
     return response.data;
   }
@@ -480,8 +476,7 @@ export class GitLabAnalyticsAPI {
   static async getVelocityChart(projectId?: number): Promise<VelocityChart> {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/analytics/velocity/chart', { 
-      params,
-      headers: getAuthHeaders()
+      params
     });
     return response.data;
   }
@@ -494,7 +489,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get(`/epic/progress/${epicId}`, { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -509,7 +504,7 @@ export class GitLabAnalyticsAPI {
     if (projectId) params.project_id = projectId;
     const response = await apiClient.get(`/analytics/period-success/${epicId}`, { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -518,7 +513,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/analytics/epic-success', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -527,7 +522,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/analytics/developer-success', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -536,7 +531,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/analytics/developer-summary', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -545,7 +540,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/analytics/epic-status', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -554,7 +549,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/milestones', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -563,7 +558,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/analytics/milestone-success', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -573,7 +568,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/analytics/gitlab/velocity', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -582,7 +577,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/analytics/team-capacity', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -591,7 +586,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/analytics/issue-type-analysis', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -600,7 +595,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/analytics/priority-analysis', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -609,7 +604,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get(`/analytics/burndown/${milestoneId}`, { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -619,7 +614,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/analytics/lead-time', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -630,7 +625,7 @@ export class GitLabAnalyticsAPI {
     if (projectId) params.project_id = projectId;
     const response = await apiClient.get('/analytics/throughput', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -639,7 +634,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/analytics/defect-rate', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -650,7 +645,7 @@ export class GitLabAnalyticsAPI {
     if (projectId) params.project_id = projectId;
     const response = await apiClient.get('/analytics/velocity-forecast', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -659,7 +654,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/analytics/team-velocity-trends', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -668,7 +663,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get(`/analytics/sprint-health/${milestoneId}`, { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -678,7 +673,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/dashboard/overview', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -687,7 +682,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/dashboard/team', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -696,7 +691,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/dashboard/sprint', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -705,7 +700,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/dashboard/health', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -720,7 +715,7 @@ export class GitLabAnalyticsAPI {
     if (projectId) params.append('project_id', projectId.toString());
     
     const response = await apiClient.get(`/analytics/sprint-planning/capacity?${params.toString()}`, { 
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -734,7 +729,7 @@ export class GitLabAnalyticsAPI {
     if (projectId) params.append('project_id', projectId.toString());
     
     const response = await apiClient.get(`/analytics/sprint-planning/commitment?${params.toString()}`, { 
-      headers: getAuthHeaders()
+
     });
     return response.data;
   }
@@ -744,7 +739,7 @@ export class GitLabAnalyticsAPI {
     const params = projectId ? { project_id: projectId } : {};
     const response = await apiClient.get('/analytics/epic-status', { 
       params,
-      headers: getAuthHeaders()
+
     });
     return response.data.map((epic: { epic_id: number; epic_title: string; start_date: string; due_date: string }) => ({
       id: epic.epic_id,
@@ -755,49 +750,49 @@ export class GitLabAnalyticsAPI {
   }
 
   static async getProjects(): Promise<Project[]> {
-    const response = await apiClient.get('/analytics/projects', { headers: getAuthHeaders() });
+    const response = await apiClient.get('/analytics/projects');
     return response.data;
   }
 
   static async getProjectMilestones(projectId: number): Promise<ProjectMilestone[]> {
-    const response = await apiClient.get(`/analytics/projects/${projectId}/milestones`, { headers: getAuthHeaders() });
+    const response = await apiClient.get(`/analytics/projects/${projectId}/milestones`);
     return response.data;
   }
 
   static async getProjectEpics(projectId: number): Promise<ProjectEpic[]> {
-    const response = await apiClient.get(`/analytics/projects/${projectId}/epics`, { headers: getAuthHeaders() });
+    const response = await apiClient.get(`/analytics/projects/${projectId}/epics`);
     return response.data;
   }
 
   static async getMilestonesList(): Promise<Milestone[]> {
-    const response = await apiClient.get('/milestones', { headers: getAuthHeaders() });
+    const response = await apiClient.get('/milestones');
     return response.data;
   }
 
   // GitLab Integration
   static async importFromGitLab(data: GitLabImportRequest): Promise<GitLabImportResponse> {
-    const response = await apiClient.post('/import/gitlab', data, { headers: getAuthHeaders() });
+    const response = await apiClient.post('/import/gitlab', data);
     return response.data;
   }
 
   // Authentication Endpoints
   static async getUserProfile(): Promise<UserProfile> {
-    const response = await apiClient.get('/auth/me', { headers: getAuthHeaders() });
+    const response = await apiClient.get('/auth/me');
     return response.data;
   }
 
   static async verifyToken(token: string): Promise<TokenVerification> {
-    const response = await apiClient.post('/auth/verify', { token }, { headers: getAuthHeaders() });
+    const response = await apiClient.post('/auth/verify', { token });
     return response.data;
   }
 
   static async getProtectedRoute(): Promise<unknown> {
-    const response = await apiClient.get('/auth/protected', { headers: getAuthHeaders() });
+    const response = await apiClient.get('/auth/protected');
     return response.data;
   }
 
   static async getOptionalAuthRoute(): Promise<unknown> {
-    const response = await apiClient.get('/auth/optional', { headers: getAuthHeaders() });
+    const response = await apiClient.get('/auth/optional');
     return response.data;
   }
 }

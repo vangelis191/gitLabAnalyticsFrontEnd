@@ -19,10 +19,10 @@ import { ProjectProvider } from './contexts/ProjectContext';
 import { useAuth } from './hooks/useAuth';
 
 function App() {
-  const { isSignedIn, isLoading, tokenReady } = useAuth();
+  const { isSignedIn, isLoading } = useAuth();
 
-  // Show loading while authentication is initializing or token is not ready
-  if (isLoading || (isSignedIn && !tokenReady)) {
+  // Show loading while authentication is initializing
+  if (isLoading) {
     return (
       <div style={{ 
         display: 'flex', 
