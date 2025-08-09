@@ -22,6 +22,8 @@ import ProviderConfig from './features/provider-integration/ProviderConfig';
 import ImportDevelopers from './features/provider-integration/ImportDevelopers';
 // New Advanced Analytics Components
 import LeadTimeAnalytics from './features/advanced-analytics/LeadTimeAnalytics';
+// Issues Management
+import IssuesManagement from './features/issues/IssuesManagement';
 import NotFound from './pages/NotFound';
 import { ProjectProvider } from './contexts/ProjectContext';
 import { useAuth } from './hooks/useAuth';
@@ -117,6 +119,9 @@ function App() {
           
           {/* Advanced Analytics */}
           <Route path="lead-time" element={<LeadTimeAnalytics />} />
+          
+          {/* Issues Management */}
+          <Route path="issues" element={<IssuesManagement />} />
           
           {/* Legacy GitLab Integration */}
           <Route path="gitlab-integration" element={<GitLabIntegration />} />

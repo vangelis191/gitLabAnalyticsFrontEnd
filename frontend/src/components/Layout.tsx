@@ -14,7 +14,7 @@ import {
   Icon,
   Badge,
 } from '@chakra-ui/react';
-import { FiMenu, FiBarChart, FiTrendingUp, FiTarget, FiHome, FiUsers, FiCalendar, FiActivity, FiLogOut, FiPieChart, FiGitBranch, FiCheckSquare, FiShield, FiAlertTriangle, FiRefreshCw, FiSettings, FiDownload, FiClock, FiUserPlus } from 'react-icons/fi';
+import { FiMenu, FiBarChart, FiTrendingUp, FiTarget, FiHome, FiUsers, FiCalendar, FiActivity, FiLogOut, FiPieChart, FiGitBranch, FiCheckSquare, FiShield, FiAlertTriangle, FiRefreshCw, FiSettings, FiDownload, FiClock, FiUserPlus, FiList } from 'react-icons/fi';
 import ProjectSelector from './ProjectSelector';
 import { useAuth } from '../hooks/useAuth';
 
@@ -40,6 +40,7 @@ const Layout: React.FC = () => {
     { icon: FiUsers, label: 'Team Dashboard', path: '/team', category: 'team' },
     { icon: FiCalendar, label: 'Sprint Dashboard', path: '/sprint', category: 'team' },
     { icon: FiActivity, label: 'Health Dashboard', path: '/health', category: 'team' },
+    { icon: FiList, label: 'Issues Management', path: '/issues', category: 'team' },
     
     // Planning & Capacity
     { icon: FiCheckSquare, label: 'Sprint Planning', path: '/sprint-planning', category: 'planning' },

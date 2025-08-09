@@ -1,2020 +1,1568 @@
-# GitLab Analytics API Documentation
+from repositories.epic_repository import get_epic_by_id
+from services.analytics_service import (
+    calculate_milestone_progress, 
+    is_period_successful, 
+    assess_sprint_risks,
+    calculate_business_value_metrics,
+    estimate_customer_satisfaction,
+    calculate_business_impact,
+    calculate_sprint_roi,
+    estimate_feature_adoption,
+    calculate_time_to_market,
+    prioritize_backlog_by_value,
+    calculate_sprint_capacity,
+    predict_sprint_commitment,
+    calculate_code_quality_metrics,
+    calculate_tech_debt_ratio
+)
+from flask import request, Blueprint, jsonify
+from services.analytics_service import get_velocity_stats
+from services.epic_progress_service import get_epic_progress_data
+from flask import request, jsonify
+from services.analytics_service import is_period_successful
+from auth import clerk_auth
+from auth import clerk_auth
+# GitLab analytics functions are now in analytics_service.py
+from services.advanced_analytics_service import (
+    get_lead_time_analysis,
+    get_throughput_analysis,
+    get_defect_rate_analysis,
+    get_velocity_forecast,
+    get_team_velocity_trends,
+    get_sprint_health_indicators
+)
+from services.dashboard_service import (
+    get_project_overview_dashboard,
+    get_team_dashboard,
+    get_sprint_dashboard,
+    get_project_health_dashboard
+)
+from services.gitlab_integration_service import import_from_gitlab_api
+from services.retrospective_service import (
+    analyze_sprint_retrospective,
+    get_retrospective_trends,
+    track_action_item_effectiveness
+)
 
-## Overview
-This API provides comprehensive Agile analytics for GitLab projects, including time-based velocity analysis, team performance metrics, project health indicators, and advanced analytics features.
+analytics_bp = Blueprint('analytics', __name__)
 
-## Base URL
-```
-http://localhost:5001
-```
+@analytics_bp.route("/analytics/milestones")
+@clerk_auth.require_auth
+def milestone_progress():
+    return jsonify(calculate_milestone_progress())
 
-## Authentication
-Most endpoints require authentication. Include the JWT token in the Authorization header:
-```
-Authorization: Bearer <your-jwt-token>
-```
+@analytics_bp.route("/analytics/epic-success")
+@clerk_auth.require_auth
+def epic_success():
+    from repositories.epic_repository import get_all_epics
+    from services.analytics_service import is_epic_successful
+    epics = get_all_epics()
+    return jsonify([
+        {
+            "epic_id": e.id,
+            "epic_title": e.title,
+            "successful": is_epic_successful(e)
+        } for e in epics
+    ])
 
-**Public Endpoints (No Authentication Required):**
-- `GET /health` - Health check
+@analytics_bp.route("/analytics/milestone-success")
+@clerk_auth.require_auth
+def milestone_success():
+    from repositories.milestone_repository import get_all_milestones
+    from services.analytics_service import is_milestone_successful
+    milestones = get_all_milestones()
+    return jsonify([
+        {
+            "milestone_id": m.id,
+            "title": m.title,
+            "successful": is_milestone_successful(m)
+        } for m in milestones
+    ])
 
-**Protected Endpoints (Authentication Required):**
-- All analytics endpoints (`/analytics/*`)
-- All dashboard endpoints (`/dashboard/*`)
-- All data endpoints (`/epics`, `/milestones`)
-- GitLab integration (`/import/gitlab`)
-- Authentication endpoints (`/auth/*`)
+@analytics_bp.route("/analytics/developer-success")
+@clerk_auth.require_auth
+def developer_success_view():
+    from repositories.milestone_repository import get_all_milestones
+    from services.analytics_service import developer_success_per_week
+    result = []
+    for m in get_all_milestones():
+        result.append({
+            "milestone_id": m.id,
+            "milestone_title": m.title,
+            "developers": developer_success_per_week(m)
+        })
+    return jsonify(result)
 
----
 
-## 🔍 **Core Analytics Endpoints**
+@analytics_bp.route("/analytics/developer-summary")
+@clerk_auth.require_auth
+def developer_summary():
+    from services.analytics_service import developer_success_summary
+    return jsonify(developer_success_summary())
 
-### 1. Projects
-**GET** `/analytics/projects`
+@analytics_bp.route("/analytics/projects")
+@clerk_auth.require_auth
+def get_projects():
+    from repositories.project_repository import get_all_projects
+    
+    # Debug headers
+    print("=== HEADERS DEBUG ===")
+    print(f"All headers: {dict(request.headers)}")
+    print(f"Authorization header: {request.headers.get('Authorization', 'NOT FOUND')}")
+    print(f"Content-Type: {request.headers.get('Content-Type', 'NOT FOUND')}")
+    print(f"User-Agent: {request.headers.get('User-Agent', 'NOT FOUND')}")
+    print(f"Accept: {request.headers.get('Accept', 'NOT FOUND')}")
+    print("===================")
+    
+    return jsonify(get_all_projects())
 
-Returns all projects.
+@analytics_bp.route("/analytics/projects/<int:project_id>/milestones")
+@clerk_auth.require_auth
+def get_project_milestones(project_id):
+    from repositories.milestone_repository import get_milestones_by_project
+    return jsonify(get_milestones_by_project(project_id))
 
-**Response:**
-```json
-[
-  {
-    "id": 1,
-    "name": "GitLab Analytics Platform",
-    "gitlab_url": "https://gitlab.com",
-    "gitlab_token": "***"
-  }
-]
-```
+@analytics_bp.route("/analytics/projects/<int:project_id>/epics")
+@clerk_auth.require_auth
+def get_project_epics(project_id):
+    from repositories.epic_repository import get_epics_by_project
+    return jsonify(get_epics_by_project(project_id))
 
-### 2. Milestones
-**GET** `/analytics/milestones`
+@analytics_bp.route("/analytics/epic-status")
+@clerk_auth.require_auth
+def epic_status_route():
+    from repositories.epic_repository import get_all_epics
+    from services.analytics_service import epic_status
+    return jsonify([epic_status(e) for e in get_all_epics()])
 
-Returns all milestones with their issues.
+@analytics_bp.route("/analytics/velocity")
+@clerk_auth.require_auth
+def velocity_per_milestone():
+    from services.analytics_service import get_velocity_stats
+    return jsonify(get_velocity_stats())
 
-**Response:**
-```json
-[
-  {
-    "id": 1,
-    "title": "Sprint 1",
-    "start_date": "2025-07-29",
-    "due_date": "2025-08-09",
-    "issues": [...]
-  }
-]
-```
 
-### 3. Epic Success Analysis
-**GET** `/analytics/epic-success`
 
-Returns success status for all epics.
+@analytics_bp.route("/analytics/velocity/stats")
+@clerk_auth.require_auth
+def velocity_stats():
+    # Πάρε backlog από query param (π.χ. ?backlog=18)
+    backlog_param = request.args.get("backlog", default=0, type=int)
 
-**Response:**
-```json
-[
-  {
-    "epic_id": 1,
-    "epic_title": "GitLab Analytics Platform",
-    "successful": true
-  }
-]
-```
+    stats = get_velocity_stats(backlog_remaining=backlog_param)
+    return jsonify(stats)
 
-### 4. Milestone Success Analysis
-**GET** `/analytics/milestone-success`
+@analytics_bp.route("/analytics/velocity/chart")
+@clerk_auth.require_auth
+def velocity_chart():
+    from services.chart_service import generate_velocity_chart_base64
+    base64_img = generate_velocity_chart_base64()
+    return jsonify({ "image_base64": base64_img })
 
-Returns success status for all milestones.
+@analytics_bp.route("/epic/progress/<int:epic_id>", methods=["GET"])
+@clerk_auth.require_auth
+def epic_progress(epic_id):
+    epic = get_epic_by_id(epic_id)
+    if not epic:
+        return jsonify({"error": "Epic not found"}), 404
+    data = get_epic_progress_data(epic)
+    return jsonify(data)
 
-**Response:**
-```json
-[
-  {
-    "milestone_id": 1,
-    "title": "Sprint 1",
-    "successful": true
-  }
-]
-```
 
-### 5. Developer Success Analysis
-**GET** `/analytics/developer-success`
+@analytics_bp.route("/analytics/is-period-successful", methods=["GET"])
+@clerk_auth.require_auth
+def check_epic_period_success():
+    """
+    Επιστρέφει True αν όλα τα issues του συγκεκριμένου epic έκλεισαν επιτυχώς μέσα στην περίοδο.
 
-Returns developer success analysis per milestone.
+    Query parameters:
+    - epic (str): ID του Epic
+    - from_date (YYYY-MM-DD)
+    - to_date (YYYY-MM-DD)
+    """
+    epic_id = request.args.get("epic")
+    from_date = request.args.get("from_date")
+    to_date = request.args.get("to_date")
 
-**Response:**
-```json
-[
-  {
-    "milestone_id": 1,
-    "milestone_title": "Sprint 1",
-    "developers": [
-      {
-        "developer": "Nikos",
-        "weeks": [
-          {
-            "week": "week1",
-            "closed": 2,
-            "total": 2,
-            "percent": 100.0,
-            "successful": true
-          }
-        ]
-      }
-    ]
-  }
-]
-```
+    if not (epic_id and from_date and to_date):
+        return jsonify({"error": "Missing required query parameters"}), 400
 
-### 6. Developer Summary
-**GET** `/analytics/developer-summary`
+    # 🔹 Get the full epic object by ID
+    from repositories.epic_repository import get_epic_by_id
+    epic = get_epic_by_id(int(epic_id))
 
-Returns overall developer performance summary.
+    if not epic:
+        return jsonify({"error": "Epic not found"}), 404
 
-**Response:**
-```json
-[
-  {
-    "developer": "Nikos",
-    "total_issues": 6,
-    "closed_issues": 3,
-    "progress_percent": 50.0,
-    "successful": true
-  }
-]
-```
+    result = is_period_successful(epic, from_date, to_date)
+    return jsonify({"success": result})
 
-### 7. Epic Status
-**GET** `/analytics/epic-status`
+# GitLab Time-Based Analytics Endpoints
+@analytics_bp.route("/analytics/gitlab/velocity")
+@clerk_auth.require_auth
+def gitlab_velocity_analysis():
+    """Get time-based velocity analysis using GitLab time estimates"""
+    from services.analytics_service import get_time_based_velocity_analysis
+    return jsonify(get_time_based_velocity_analysis())
 
-Returns detailed epic status with milestone breakdown.
+@analytics_bp.route("/analytics/team-capacity")
+@clerk_auth.require_auth
+def team_capacity():
+    """Get team capacity analysis with optional project_id parameter"""
+    project_id = request.args.get('project_id', type=int)
+    from services.analytics_service import get_team_capacity_analysis
+    return jsonify(get_team_capacity_analysis(project_id=project_id))
 
-**Response:**
-```json
-{
-  "epic_id": 1,
-  "epic_title": "GitLab Analytics Platform",
-  "start_date": "2025-07-29",
-  "due_date": "2026-01-29",
-  "successful": true,
-  "milestones": [...]
-}
-```
 
-### 8. Velocity Analysis
-**GET** `/analytics/velocity`
 
-Returns velocity per milestone.
+@analytics_bp.route("/analytics/gitlab/issue-types")
+@clerk_auth.require_auth
+def gitlab_issue_type_analysis():
+    """Get analysis by issue type (bug, feature, task)"""
+    from services.analytics_service import get_issue_type_analysis
+    return jsonify(get_issue_type_analysis())
 
-**Response:**
-```json
-[
-  {
-    "milestone_id": 1,
-    "title": "Sprint 1",
-    "velocity": 16.5
-  }
-]
-```
+@analytics_bp.route("/analytics/gitlab/priorities")
+@clerk_auth.require_auth
+def gitlab_priority_analysis():
+    """Get analysis by priority level"""
+    from services.analytics_service import get_priority_analysis
+    return jsonify(get_priority_analysis())
 
-### 9. Velocity Statistics
-**GET** `/analytics/velocity/stats?backlog=40`
+@analytics_bp.route("/analytics/gitlab/burndown/<int:milestone_id>")
+@clerk_auth.require_auth
+def gitlab_burndown(milestone_id):
+    """Get burndown chart data for a specific milestone"""
+    from services.analytics_service import get_burndown_data
+    data = get_burndown_data(milestone_id)
+    if data is None:
+        return jsonify({"error": "Milestone not found"}), 404
+    return jsonify(data)
 
-Returns time-based velocity statistics using GitLab time estimates.
+# Advanced Analytics Endpoints
+@analytics_bp.route("/analytics/lead-time")
+@clerk_auth.require_auth
+def lead_time_analysis():
+    """Get lead time analysis for all issues"""
+    return jsonify(get_lead_time_analysis())
 
-**Query Parameters:**
-- `backlog` (optional): Remaining hours in backlog for sprint estimation
+@analytics_bp.route("/analytics/throughput")
+@clerk_auth.require_auth
+def throughput_analysis():
+    """Get throughput analysis"""
+    days = request.args.get('days', 30, type=int)
+    return jsonify(get_throughput_analysis(days=days))
 
-**Response:**
-```json
-{
-  "sprints": [
-    {
-      "milestone_id": 1,
-      "title": "Sprint 1",
-      "total_issues": 4,
-      "closed_issues": 2,
-      "velocity_hours": 16.5,
-      "avg_hours_per_issue": 8.25
+@analytics_bp.route("/analytics/defect-rate")
+@clerk_auth.require_auth
+def defect_rate_analysis():
+    """Get defect rate analysis"""
+    return jsonify(get_defect_rate_analysis())
+
+@analytics_bp.route("/analytics/velocity-forecast")
+@clerk_auth.require_auth
+def velocity_forecast():
+    """Get velocity forecasting"""
+    sprints_ahead = request.args.get('sprints_ahead', 3, type=int)
+    return jsonify(get_velocity_forecast(sprints_ahead=sprints_ahead))
+
+@analytics_bp.route("/analytics/team-velocity-trends")
+@clerk_auth.require_auth
+def team_velocity_trends():
+    """Get team velocity trends"""
+    return jsonify(get_team_velocity_trends())
+
+@analytics_bp.route("/analytics/sprint-health/<int:milestone_id>")
+@clerk_auth.require_auth
+def sprint_health(milestone_id):
+    """Get sprint health indicators"""
+    data = get_sprint_health_indicators(milestone_id)
+    if data is None:
+        return jsonify({"error": "Milestone not found"}), 404
+    return jsonify(data)
+
+# Dashboard Endpoints
+@analytics_bp.route("/dashboard/overview")
+@clerk_auth.require_auth
+def overview_dashboard():
+    """Get project overview dashboard"""
+    return jsonify(get_project_overview_dashboard())
+
+@analytics_bp.route("/dashboard/team")
+@clerk_auth.require_auth
+def team_dashboard():
+    """Get team dashboard"""
+    return jsonify(get_team_dashboard())
+
+@analytics_bp.route("/dashboard/sprint")
+@clerk_auth.require_auth
+def sprint_dashboard():
+    """Get sprint dashboard"""
+    return jsonify(get_sprint_dashboard())
+
+@analytics_bp.route("/dashboard/health")
+@clerk_auth.require_auth
+def health_dashboard():
+    """Get project health dashboard"""
+    return jsonify(get_project_health_dashboard())
+
+# GitLab Integration Endpoints
+@analytics_bp.route("/import/gitlab", methods=["POST"])
+@clerk_auth.require_auth
+def import_gitlab_data():
+    """Import data from GitLab API"""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    project_ids = data.get("project_ids", [])
+    gitlab_url = data.get("gitlab_url")
+    access_token = data.get("access_token")
+    
+    if not project_ids:
+        return jsonify({"error": "No project IDs provided"}), 400
+    
+    if not access_token:
+        return jsonify({"error": "GitLab access token required"}), 400
+    
+    try:
+        results = import_from_gitlab_api(project_ids, gitlab_url, access_token)
+        return jsonify({
+            "message": "Import completed",
+            "results": results
+        })
+    except Exception as e:
+        return jsonify({"error": f"Import failed: {str(e)}"}), 500
+
+# Add project-aware routes after the existing routes
+
+# Project-specific Analytics Routes
+@analytics_bp.route("/analytics/projects/<int:project_id>/milestone-progress")
+@clerk_auth.require_auth
+def project_specific_milestone_progress(project_id):
+    from services.analytics_service import calculate_milestone_progress
+    return jsonify(calculate_milestone_progress(project_id))
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/epic-success")
+@clerk_auth.require_auth
+def project_specific_epic_success(project_id):
+    from services.analytics_service import get_epics_by_project_success
+    return jsonify(get_epics_by_project_success(project_id))
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/milestone-success")
+@clerk_auth.require_auth
+def project_specific_milestone_success(project_id):
+    from services.analytics_service import get_milestones_by_project_status
+    return jsonify(get_milestones_by_project_status(project_id))
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/developer-success")
+@clerk_auth.require_auth
+def project_specific_developer_success_view(project_id):
+    from repositories.milestone_repository import get_milestones_by_project, get_milestone_by_id
+    from services.analytics_service import developer_success_per_week
+    result = []
+    milestones_data = get_milestones_by_project(project_id)
+    for m_data in milestones_data:
+        m = get_milestone_by_id(m_data['id'])
+        result.append({
+            "milestone_id": m.id,
+            "milestone_title": m.title,
+            "developers": developer_success_per_week(m)
+        })
+    return jsonify(result)
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/developer-summary")
+@clerk_auth.require_auth
+def project_specific_developer_summary(project_id):
+    from services.analytics_service import developer_success_summary
+    return jsonify(developer_success_summary(project_id=project_id))
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/epic-status")
+@clerk_auth.require_auth
+def project_specific_epic_status_route(project_id):
+    from services.analytics_service import get_epics_by_project_status
+    return jsonify(get_epics_by_project_status(project_id))
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/epic-progress/<int:epic_id>")
+@clerk_auth.require_auth
+def project_specific_epic_progress(project_id, epic_id):
+    """Get epic progress data for a specific epic within a project"""
+    from repositories.epic_repository import get_epic_by_id
+    from services.epic_progress_service import get_epic_progress_data
+    
+    # Get the epic and verify it belongs to the project
+    epic = get_epic_by_id(epic_id)
+    if not epic:
+        return jsonify({"error": "Epic not found"}), 404
+    
+    if epic.project_id != project_id:
+        return jsonify({"error": "Epic does not belong to the specified project"}), 400
+    
+    data = get_epic_progress_data(epic)
+    return jsonify(data)
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/velocity")
+@clerk_auth.require_auth
+def project_specific_velocity_per_milestone(project_id):
+    from services.analytics_service import get_velocity_stats
+    return jsonify(get_velocity_stats(project_id=project_id))
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/velocity/stats")
+@clerk_auth.require_auth
+def project_specific_velocity_stats(project_id):
+    # Πάρε backlog από query param (π.χ. ?backlog=18)
+    backlog_param = request.args.get("backlog", default=0, type=int)
+    
+    from services.analytics_service import get_velocity_stats
+    stats = get_velocity_stats(backlog_remaining=backlog_param, project_id=project_id)
+    return jsonify(stats)
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/velocity/chart")
+@clerk_auth.require_auth
+def project_specific_velocity_chart(project_id):
+    from services.chart_service import generate_velocity_chart_base64
+    from services.analytics_service import get_velocity_stats
+    stats = get_velocity_stats(project_id=project_id)
+    chart_base64 = generate_velocity_chart_base64(stats)
+    return jsonify({"chart": chart_base64})
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/gitlab/velocity")
+@clerk_auth.require_auth
+def project_specific_gitlab_velocity_analysis(project_id):
+    """Get time-based velocity analysis using GitLab time estimates for specific project"""
+    from services.analytics_service import get_time_based_velocity_analysis
+    return jsonify(get_time_based_velocity_analysis(project_id))
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/gitlab/team-capacity")
+@clerk_auth.require_auth
+def project_specific_gitlab_team_capacity(project_id):
+    """Get team capacity analysis based on time estimates for specific project"""
+    from services.analytics_service import get_team_capacity_analysis
+    return jsonify(get_team_capacity_analysis(project_id))
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/gitlab/issue-types")
+@clerk_auth.require_auth
+def project_specific_gitlab_issue_type_analysis(project_id):
+    """Get analysis by issue type (bug, feature, task) for specific project"""
+    from services.analytics_service import get_issue_type_analysis
+    return jsonify(get_issue_type_analysis(project_id))
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/gitlab/priorities")
+@clerk_auth.require_auth
+def project_specific_gitlab_priority_analysis(project_id):
+    """Get analysis by priority level for specific project"""
+    from services.analytics_service import get_priority_analysis
+    return jsonify(get_priority_analysis(project_id))
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/gitlab/burndown/<int:milestone_id>")
+@clerk_auth.require_auth
+def project_specific_gitlab_burndown(project_id, milestone_id):
+    """Get burndown chart data for a specific milestone in project"""
+    from services.analytics_service import get_burndown_data
+    from repositories.milestone_repository import get_milestone_by_id
+    
+    # Verify milestone belongs to project
+    milestone = get_milestone_by_id(milestone_id)
+    if not milestone or milestone.project_id != project_id:
+        return jsonify({"error": "Milestone not found in project"}), 404
+    
+    return jsonify(get_burndown_data(milestone_id))
+
+# Project-specific Advanced Analytics Routes
+@analytics_bp.route("/analytics/projects/<int:project_id>/lead-time")
+@clerk_auth.require_auth
+def project_specific_lead_time_analysis(project_id):
+    """Get lead time analysis for all issues in project"""
+    from services.advanced_analytics_service import get_lead_time_analysis
+    return jsonify(get_lead_time_analysis(project_id))
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/throughput")
+@clerk_auth.require_auth
+def project_specific_throughput_analysis(project_id):
+    """Get throughput analysis for project"""
+    from services.advanced_analytics_service import get_throughput_analysis
+    days = request.args.get('days', 30, type=int)
+    return jsonify(get_throughput_analysis(days=days, project_id=project_id))
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/defect-rate")
+@clerk_auth.require_auth
+def project_specific_defect_rate_analysis(project_id):
+    """Get defect rate analysis for project"""
+    from services.advanced_analytics_service import get_defect_rate_analysis
+    return jsonify(get_defect_rate_analysis(project_id))
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/velocity-forecast")
+@clerk_auth.require_auth
+def project_specific_velocity_forecast(project_id):
+    """Get velocity forecasting for project"""
+    from services.advanced_analytics_service import get_velocity_forecast
+    sprints_ahead = request.args.get('sprints_ahead', 3, type=int)
+    return jsonify(get_velocity_forecast(sprints_ahead=sprints_ahead, project_id=project_id))
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/team-velocity-trends")
+@clerk_auth.require_auth
+def project_specific_team_velocity_trends(project_id):
+    """Get team velocity trends for project"""
+    from services.advanced_analytics_service import get_team_velocity_trends
+    return jsonify(get_team_velocity_trends(project_id))
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/sprint-health/<int:milestone_id>")
+@clerk_auth.require_auth
+def project_specific_sprint_health(project_id, milestone_id):
+    """Get sprint health indicators for specific milestone in project"""
+    from services.advanced_analytics_service import get_sprint_health_indicators
+    from repositories.milestone_repository import get_milestone_by_id
+    
+    # Verify milestone belongs to project
+    milestone = get_milestone_by_id(milestone_id)
+    if not milestone or milestone.project_id != project_id:
+        return jsonify({"error": "Milestone not found in project"}), 404
+    
+    return jsonify(get_sprint_health_indicators(milestone_id))
+
+# Project-specific Dashboard Routes
+@analytics_bp.route("/analytics/projects/<int:project_id>/dashboard/overview")
+@clerk_auth.require_auth
+def project_specific_overview_dashboard(project_id):
+    """Get project overview dashboard data"""
+    from services.dashboard_service import get_project_overview_dashboard
+    return jsonify(get_project_overview_dashboard(project_id))
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/dashboard/team")
+@clerk_auth.require_auth
+def project_specific_team_dashboard(project_id):
+    """Get team dashboard data for project"""
+    from services.dashboard_service import get_team_dashboard
+    return jsonify(get_team_dashboard(project_id))
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/dashboard/sprint")
+@clerk_auth.require_auth
+def project_specific_sprint_dashboard(project_id):
+    """Get sprint dashboard data for project"""
+    from services.dashboard_service import get_sprint_dashboard
+    return jsonify(get_sprint_dashboard(project_id))
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/dashboard/health")
+@clerk_auth.require_auth
+def project_specific_health_dashboard(project_id):
+    """Get project health dashboard data"""
+    from services.dashboard_service import get_project_health_dashboard
+    return jsonify(get_project_health_dashboard(project_id))
+
+# ============================================================================
+# PROJECT-SPECIFIC RETROSPECTIVE ROUTES
+# ============================================================================
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/retrospective/<int:sprint_id>")
+@clerk_auth.require_auth
+def project_specific_sprint_retrospective(project_id, sprint_id):
+    """Analyze sprint for retrospective insights (project-specific)"""
+    insights = analyze_sprint_retrospective(sprint_id, project_id)
+    return jsonify(insights)
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/retrospective/actions/<int:sprint_id>")
+@clerk_auth.require_auth
+def project_specific_retrospective_actions(project_id, sprint_id):
+    """Track effectiveness of retrospective actions (project-specific)"""
+    from flask import request
+    import json
+    
+    action_items = request.json.get('action_items', [])
+    follow_up_sprints = request.json.get('follow_up_sprints', [])
+    
+    effectiveness = track_action_item_effectiveness(sprint_id, action_items, follow_up_sprints)
+    return jsonify(effectiveness)
+
+@analytics_bp.route("/analytics/projects/<int:project_id>/retrospective/trends")
+@clerk_auth.require_auth
+def project_specific_retrospective_trends(project_id):
+    """Get retrospective trends across multiple sprints (project-specific)"""
+    sprints_count = request.args.get('sprints_count', 5, type=int)
+    
+    trends = get_retrospective_trends(project_id, sprints_count)
+    return jsonify(trends)
+
+# GitLab Project Data Route
+@analytics_bp.route("/analytics/projects/<int:project_id>/gitlab/full-data")
+@clerk_auth.require_auth
+def get_gitlab_full_project_data(project_id):
+    """
+    Get all GitLab data for a project (issues + milestones) organized for frontend
+    This allows you to create your own epics and milestones structure
+    """
+    from services.gitlab_integration_service import GitLabIntegration
+    from repositories.project_repository import get_project_by_id
+    
+    # Get project info
+    project = get_project_by_id(project_id)
+    if not project:
+        return jsonify({"error": "Project not found"}), 404
+    
+    # Get GitLab configuration from project or environment
+    gitlab_url = project.gitlab_url if hasattr(project, 'gitlab_url') else None
+    gitlab_token = project.gitlab_token if hasattr(project, 'gitlab_token') else None
+    
+    if not gitlab_url or not gitlab_token:
+        return jsonify({"error": "GitLab configuration not found for this project"}), 400
+    
+    try:
+        # Initialize GitLab integration
+        gitlab = GitLabIntegration(gitlab_url, gitlab_token)
+        
+        # Get all issues for the project
+        issues = gitlab.get_project_issues(project_id)
+        
+        # Get all milestones for the project
+        milestones = gitlab.get_project_milestones(project_id)
+        
+        # Organize data for frontend consumption
+        organized_data = {
+            "project_info": {
+                "id": project_id,
+                "name": project.name,
+                "gitlab_url": gitlab_url,
+                "total_issues": len(issues),
+                "total_milestones": len(milestones)
+            },
+            "raw_issues": issues,
+            "raw_milestones": milestones,
+            "organized_by_labels": {},
+            "organized_by_assignee": {},
+            "organized_by_state": {
+                "open": [],
+                "closed": []
+            },
+            "organized_by_priority": {
+                "high": [],
+                "medium": [],
+                "low": []
+            },
+            "organized_by_type": {
+                "bug": [],
+                "feature": [],
+                "task": []
+            },
+            "statistics": {
+                "total_issues": len(issues),
+                "open_issues": len([i for i in issues if i.get("state") == "opened"]),
+                "closed_issues": len([i for i in issues if i.get("state") == "closed"]),
+                "total_milestones": len(milestones),
+                "active_milestones": len([m for m in milestones if m.get("state") == "active"]),
+                "closed_milestones": len([m for m in milestones if m.get("state") == "closed"])
+            }
+        }
+        
+        # Organize issues by labels (potential epics)
+        for issue in issues:
+            labels = issue.get("labels", [])
+            
+            # Organize by labels (potential epics)
+            for label in labels:
+                if label not in organized_data["organized_by_labels"]:
+                    organized_data["organized_by_labels"][label] = []
+                organized_data["organized_by_labels"][label].append(issue)
+            
+            # Organize by assignee
+            assignee = issue.get("assignee", {}).get("name") if issue.get("assignee") else "Unassigned"
+            if assignee not in organized_data["organized_by_assignee"]:
+                organized_data["organized_by_assignee"][assignee] = []
+            organized_data["organized_by_assignee"][assignee].append(issue)
+            
+            # Organize by state
+            state = issue.get("state", "opened")
+            if state == "opened":
+                organized_data["organized_by_state"]["open"].append(issue)
+            else:
+                organized_data["organized_by_state"]["closed"].append(issue)
+            
+            # Organize by priority (from labels)
+            priority = "medium"  # default
+            if "high" in labels:
+                priority = "high"
+            elif "low" in labels:
+                priority = "low"
+            organized_data["organized_by_priority"][priority].append(issue)
+            
+            # Organize by type (from labels)
+            issue_type = "task"  # default
+            if "bug" in labels:
+                issue_type = "bug"
+            elif "feature" in labels:
+                issue_type = "feature"
+            organized_data["organized_by_type"][issue_type].append(issue)
+        
+        return jsonify(organized_data)
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch GitLab data: {str(e)}"}), 500
+
+# Save GitLab Data to Database Route
+@analytics_bp.route("/analytics/projects/<int:project_id>/gitlab/save-to-database", methods=["POST"])
+@clerk_auth.require_auth
+def save_gitlab_data_to_database(project_id):
+    """
+    Save GitLab data (issues and milestones) to local database
+    This allows you to work with the data offline and create your own structure
+    """
+    from services.gitlab_integration_service import GitLabIntegration
+    from repositories.project_repository import get_project_by_id
+    from models.models import Issue, Milestone, Epic
+    from db_init import db
+    from datetime import datetime
+    
+    # Get project info
+    project = get_project_by_id(project_id)
+    if not project:
+        return jsonify({"error": "Project not found"}), 404
+    
+    # Get GitLab configuration
+    gitlab_url = project.gitlab_url if hasattr(project, 'gitlab_url') else None
+    gitlab_token = project.gitlab_token if hasattr(project, 'gitlab_token') else None
+    
+    if not gitlab_url or not gitlab_token:
+        return jsonify({"error": "GitLab configuration not found for this project"}), 400
+    
+    try:
+        # Initialize GitLab integration
+        gitlab = GitLabIntegration(gitlab_url, gitlab_token)
+        
+        # Get all issues and milestones
+        issues = gitlab.get_project_issues(project_id)
+        milestones = gitlab.get_project_milestones(project_id)
+        
+        # Create epics from labels (group issues by common labels)
+        label_to_epic = {}
+        epic_counter = 1
+        
+        for issue in issues:
+            labels = issue.get("labels", [])
+            for label in labels:
+                if label not in label_to_epic:
+                    # Create new epic for this label
+                    epic = Epic(
+                        title=f"Epic: {label}",
+                        description=f"Auto-generated epic from GitLab label: {label}",
+                        project_id=project_id,
+                        created_date=datetime.now(),
+                        updated_date=datetime.now()
+                    )
+                    db.session.add(epic)
+                    db.session.flush()  # Get the epic ID
+                    label_to_epic[label] = epic.id
+                    epic_counter += 1
+        
+        # Save milestones
+        saved_milestones = {}
+        for gitlab_milestone in milestones:
+            milestone = Milestone(
+                title=gitlab_milestone.get("title", "Untitled"),
+                description=gitlab_milestone.get("description", ""),
+                project_id=project_id,
+                start_date=datetime.fromisoformat(gitlab_milestone["start_date"].replace("Z", "+00:00")) if gitlab_milestone.get("start_date") else datetime.now(),
+                due_date=datetime.fromisoformat(gitlab_milestone["due_date"].replace("Z", "+00:00")) if gitlab_milestone.get("due_date") else datetime.now(),
+                state=gitlab_milestone.get("state", "active"),
+                created_date=datetime.fromisoformat(gitlab_milestone["created_at"].replace("Z", "+00:00")) if gitlab_milestone.get("created_at") else datetime.now(),
+                updated_date=datetime.fromisoformat(gitlab_milestone["updated_at"].replace("Z", "+00:00")) if gitlab_milestone.get("updated_at") else datetime.now()
+            )
+            db.session.add(milestone)
+            db.session.flush()  # Get the milestone ID
+            saved_milestones[gitlab_milestone["id"]] = milestone.id
+        
+        # Save issues
+        saved_issues = 0
+        for gitlab_issue in issues:
+            # Determine epic from labels
+            epic_id = None
+            labels = gitlab_issue.get("labels", [])
+            for label in labels:
+                if label in label_to_epic:
+                    epic_id = label_to_epic[label]
+                    break
+            
+            # Determine milestone from GitLab milestone
+            milestone_id = None
+            if gitlab_issue.get("milestone") and gitlab_issue["milestone"]["id"] in saved_milestones:
+                milestone_id = saved_milestones[gitlab_issue["milestone"]["id"]]
+            
+            # Parse time tracking
+            time_stats = gitlab_issue.get("time_stats", {})
+            time_estimate = time_stats.get("time_estimate", 0) / 3600  # Convert seconds to hours
+            time_spent = time_stats.get("total_time_spent", 0) / 3600  # Convert seconds to hours
+            
+            # Determine issue type and priority from labels
+            issue_type = "task"  # default
+            priority = "medium"  # default
+            if "bug" in labels:
+                issue_type = "bug"
+            elif "feature" in labels:
+                issue_type = "feature"
+            
+            if "high" in labels:
+                priority = "high"
+            elif "low" in labels:
+                priority = "low"
+            
+            issue = Issue(
+                title=gitlab_issue.get("title", "Untitled"),
+                description=gitlab_issue.get("description", ""),
+                state=gitlab_issue.get("state", "opened"),
+                assignee=gitlab_issue.get("assignee", {}).get("name") if gitlab_issue.get("assignee") else None,
+                reporter=gitlab_issue.get("author", {}).get("name") if gitlab_issue.get("author") else None,
+                project_id=project_id,
+                epic_id=epic_id,
+                milestone_id=milestone_id,
+                created_date=datetime.fromisoformat(gitlab_issue["created_at"].replace("Z", "+00:00")) if gitlab_issue.get("created_at") else datetime.now(),
+                updated_date=datetime.fromisoformat(gitlab_issue["updated_at"].replace("Z", "+00:00")) if gitlab_issue.get("updated_at") else datetime.now(),
+                closed_date=datetime.fromisoformat(gitlab_issue["closed_at"].replace("Z", "+00:00")) if gitlab_issue.get("closed_at") else None,
+                time_estimate=time_estimate,
+                time_spent=time_spent,
+                issue_type=issue_type,
+                priority=priority,
+                gitlab_id=gitlab_issue.get("id")  # Store original GitLab ID for reference
+            )
+            db.session.add(issue)
+            saved_issues += 1
+        
+        # Commit all changes
+        db.session.commit()
+        
+        return jsonify({
+            "message": "GitLab data saved successfully",
+            "summary": {
+                "project_id": project_id,
+                "epics_created": len(label_to_epic),
+                "milestones_saved": len(saved_milestones),
+                "issues_saved": saved_issues,
+                "total_epics": len(label_to_epic),
+                "total_milestones": len(saved_milestones),
+                "total_issues": saved_issues
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to save GitLab data: {str(e)}"}), 500
+
+# Create Custom Epic Route
+@analytics_bp.route("/analytics/projects/<int:project_id>/epics", methods=["POST"])
+@clerk_auth.require_auth
+def create_custom_epic(project_id):
+    """
+    Create a custom epic and assign issues to it
+    """
+    from models.models import Epic, Issue
+    from db_init import db
+    from datetime import datetime
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    title = data.get("title")
+    description = data.get("description", "")
+    start_date = data.get("start_date")
+    due_date = data.get("due_date")
+    issue_ids = data.get("issue_ids", [])
+    
+    if not title or not start_date or not due_date:
+        return jsonify({"error": "Title, start_date, and due_date are required"}), 400
+    
+    try:
+        # Create the epic
+        epic = Epic(
+            title=title,
+            description=description,
+            start_date=datetime.fromisoformat(start_date).date(),
+            due_date=datetime.fromisoformat(due_date).date(),
+            project_id=project_id,
+            created_date=datetime.now(),
+            updated_date=datetime.now()
+        )
+        db.session.add(epic)
+        db.session.flush()  # Get the epic ID
+        
+        # Assign issues to the epic
+        if issue_ids:
+            issues = Issue.query.filter(Issue.id.in_(issue_ids), Issue.project_id == project_id).all()
+            for issue in issues:
+                issue.epic_id = epic.id
+            db.session.add_all(issues)
+        
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Epic created successfully",
+            "epic": {
+                "id": epic.id,
+                "title": epic.title,
+                "description": epic.description,
+                "start_date": epic.start_date.isoformat(),
+                "due_date": epic.due_date.isoformat(),
+                "issues_count": len(issue_ids)
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to create epic: {str(e)}"}), 500
+
+# Create Custom Milestone Route
+@analytics_bp.route("/analytics/projects/<int:project_id>/milestones", methods=["POST"])
+@clerk_auth.require_auth
+def create_custom_milestone(project_id):
+    """
+    Create a custom milestone and assign issues to it
+    """
+    from models.models import Milestone, Issue
+    from db_init import db
+    from datetime import datetime
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    title = data.get("title")
+    description = data.get("description", "")
+    start_date = data.get("start_date")
+    due_date = data.get("due_date")
+    issue_ids = data.get("issue_ids", [])
+    
+    if not title or not start_date or not due_date:
+        return jsonify({"error": "Title, start_date, and due_date are required"}), 400
+    
+    try:
+        # Create the milestone
+        milestone = Milestone(
+            title=title,
+            description=description,
+            start_date=datetime.fromisoformat(start_date).date(),
+            due_date=datetime.fromisoformat(due_date).date(),
+            project_id=project_id,
+            state="active",
+            created_date=datetime.now(),
+            updated_date=datetime.now()
+        )
+        db.session.add(milestone)
+        db.session.flush()  # Get the milestone ID
+        
+        # Assign issues to the milestone
+        if issue_ids:
+            issues = Issue.query.filter(Issue.id.in_(issue_ids), Issue.project_id == project_id).all()
+            for issue in issues:
+                issue.milestone_id = milestone.id
+            db.session.add_all(issues)
+        
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Milestone created successfully",
+            "milestone": {
+                "id": milestone.id,
+                "title": milestone.title,
+                "description": milestone.description,
+                "start_date": milestone.start_date.isoformat(),
+                "due_date": milestone.due_date.isoformat(),
+                "state": milestone.state,
+                "issues_count": len(issue_ids)
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to create milestone: {str(e)}"}), 500
+
+# Get Available Issues for Epic/Milestone Creation
+@analytics_bp.route("/analytics/projects/<int:project_id>/available-issues")
+@clerk_auth.require_auth
+def get_available_issues(project_id):
+    """
+    Get all issues that are not assigned to any epic or milestone
+    """
+    from models.models import Issue
+    
+    try:
+        # Get issues without epic or milestone
+        available_issues = Issue.query.filter(
+            Issue.project_id == project_id,
+            (Issue.epic_id.is_(None) | Issue.milestone_id.is_(None))
+        ).all()
+        
+        return jsonify({
+            "available_issues": [
+                {
+                    "id": issue.id,
+                    "title": issue.title,
+                    "state": issue.state,
+                    "assignee": issue.assignee,
+                    "issue_type": issue.issue_type,
+                    "priority": issue.priority,
+                    "time_estimate": issue.time_estimate,
+                    "time_spent": issue.time_spent
+                } for issue in available_issues
+            ],
+            "count": len(available_issues)
+        })
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to get available issues: {str(e)}"}), 500
+
+# ============================================================================
+# SPRINT PLANNING ROUTES
+# ============================================================================
+
+@analytics_bp.route("/analytics/sprint-planning/capacity")
+@clerk_auth.require_auth
+def sprint_capacity():
+    """Calculate team capacity for sprint planning"""
+    from flask import request
+    import re
+    
+    # Support array notation for all parameters
+    args_dict = dict(request.args)
+    
+    # Extract team_members array
+    team_members = []
+    array_members = []
+    for key in args_dict:
+        if key.startswith('team_members[') and key.endswith(']'):
+            try:
+                index = int(key[13:-1])  # Extract index from team_members[index]
+                array_members.append((index, args_dict[key]))
+            except ValueError:
+                continue
+    
+    if array_members:
+        # Sort by index and extract values
+        array_members.sort(key=lambda x: x[0])
+        team_members = [member[1] for member in array_members]
+    else:
+        # Fallback to multiple parameters
+        team_members = request.args.getlist('team_members')
+    
+    # Extract sprint_duration array (take first value)
+    sprint_duration = 2  # default
+    sprint_duration_array = []
+    for key in args_dict:
+        if key.startswith('sprint_duration[') and key.endswith(']'):
+            try:
+                index = int(key[16:-1])  # Extract index from sprint_duration[index]
+                sprint_duration_array.append((index, args_dict[key]))
+            except ValueError:
+                continue
+    
+    if sprint_duration_array:
+        # Sort by index and take first value
+        sprint_duration_array.sort(key=lambda x: x[0])
+        sprint_duration = int(sprint_duration_array[0][1])
+    else:
+        # Fallback to single parameter
+        sprint_duration = int(request.args.get('sprint_duration', 2))
+    
+    # Extract project_id array (take first value)
+    project_id = None
+    project_id_array = []
+    for key in args_dict:
+        if key.startswith('project_id[') and key.endswith(']'):
+            try:
+                index = int(key[12:-1])  # Extract index from project_id[index]
+                project_id_array.append((index, args_dict[key]))
+            except ValueError:
+                continue
+    
+    if project_id_array:
+        # Sort by index and take first value
+        project_id_array.sort(key=lambda x: x[0])
+        project_id = int(project_id_array[0][1])
+    else:
+        # Fallback to single parameter
+        project_id = request.args.get('project_id', type=int)
+    
+    if not team_members:
+        return jsonify({"error": "Team members required"}), 400
+    
+    capacity = calculate_sprint_capacity(team_members, sprint_duration, project_id)
+    return jsonify(capacity)
+
+@analytics_bp.route("/analytics/sprint-planning/commitment")
+@clerk_auth.require_auth
+def sprint_commitment():
+    """Predict sprint commitment"""
+    from flask import request
+    import re
+    
+    # Support array notation for all parameters (same as capacity route)
+    args_dict = dict(request.args)
+    
+    # Extract team_members array
+    team_members = []
+    array_members = []
+    for key in args_dict:
+        if key.startswith('team_members[') and key.endswith(']'):
+            try:
+                index = int(key[13:-1])  # Extract index from team_members[index]
+                array_members.append((index, args_dict[key]))
+            except ValueError:
+                continue
+    
+    if array_members:
+        # Sort by index and extract values
+        array_members.sort(key=lambda x: x[0])
+        team_members = [member[1] for member in array_members]
+    else:
+        # Fallback to multiple parameters
+        team_members = request.args.getlist('team_members')
+    
+    # Extract sprint_duration (take first value)
+    sprint_duration = 2  # default
+    sprint_duration_array = []
+    for key in args_dict:
+        if key.startswith('sprint_duration[') and key.endswith(']'):
+            try:
+                index = int(key[16:-1])  # Extract index from sprint_duration[index]
+                sprint_duration_array.append((index, args_dict[key]))
+            except ValueError:
+                continue
+    
+    if sprint_duration_array:
+        # Sort by index and take first value
+        sprint_duration_array.sort(key=lambda x: x[0])
+        sprint_duration = int(sprint_duration_array[0][1])
+    else:
+        # Fallback to single parameter
+        sprint_duration = int(request.args.get('sprint_duration', 2))
+    
+    # Extract project_id
+    project_id = request.args.get('project_id', type=int)
+    
+    if not team_members:
+        return jsonify({"error": "Team members required"}), 400
+    
+    # Use the existing calculate_sprint_capacity function to get proper structure
+    team_capacity = calculate_sprint_capacity(team_members, sprint_duration, project_id)
+    
+    # Get backlog_items from database or use empty list
+    backlog_items = []  # You can populate this from your database if needed
+    
+    prediction = predict_sprint_commitment(team_capacity, backlog_items, project_id)
+    return jsonify(prediction)
+
+# ============================================================================
+# QUALITY ANALYTICS ROUTES
+# ============================================================================
+
+@analytics_bp.route("/analytics/quality/metrics")
+@clerk_auth.require_auth
+def quality_metrics():
+    """Get comprehensive code quality metrics"""
+    project_id = request.args.get('project_id', type=int)
+    metrics = calculate_code_quality_metrics(project_id)
+    return jsonify(metrics)
+
+@analytics_bp.route("/analytics/quality/tech-debt-impact")
+@clerk_auth.require_auth
+def tech_debt_impact():
+    """Analyze technical debt impact"""
+    project_id = request.args.get('project_id', type=int)
+    
+    # Calculate tech debt impact
+    tech_debt_ratio = calculate_tech_debt_ratio(project_id)
+    velocity_with_debt = get_velocity_stats(project_id=project_id)
+    
+    # Estimate velocity without debt (simplified)
+    estimated_velocity_improvement = tech_debt_ratio * 0.1  # 10% improvement per 1% debt
+    
+    return jsonify({
+        'tech_debt_ratio': tech_debt_ratio,
+        'estimated_velocity_improvement': round(estimated_velocity_improvement, 2),
+        'recommendation': 'Reduce technical debt' if tech_debt_ratio > 20 else 'Maintain current levels'
+    })
+
+# ============================================================================
+# RISK ASSESSMENT ROUTES
+# ============================================================================
+
+@analytics_bp.route("/analytics/risks/sprint/<int:sprint_id>")
+@clerk_auth.require_auth
+def sprint_risks(sprint_id):
+    """Assess risks for a specific sprint"""
+    project_id = request.args.get('project_id', type=int)
+    risks = assess_sprint_risks(sprint_id, project_id)
+    
+    if 'error' in risks:
+        return jsonify(risks), 404
+    
+    return jsonify(risks)
+
+@analytics_bp.route("/analytics/risks/project/<int:project_id>")
+@clerk_auth.require_auth
+def project_risks(project_id):
+    """Assess overall project risks"""
+    from repositories.milestone_repository import get_milestones_by_project, get_milestone_by_id
+    
+    milestones_data = get_milestones_by_project(project_id)
+    project_risks = []
+    
+    for milestone_data in milestones_data:
+        # Get the actual milestone object for risk assessment
+        milestone = get_milestone_by_id(milestone_data['id'])
+        if milestone:
+            risks = assess_sprint_risks(milestone_data['id'], project_id)
+            if 'error' not in risks:
+                project_risks.append(risks)
+    
+    if project_risks:
+        avg_risk_score = sum(r['overall_risk_score'] for r in project_risks) / len(project_risks)
+        return jsonify({
+            'project_id': project_id,
+            'average_risk_score': round(avg_risk_score, 2),
+            'sprint_risks': project_risks,
+            'overall_risk_level': 'high' if avg_risk_score > 70 else 'medium' if avg_risk_score > 40 else 'low'
+        })
+    else:
+        return jsonify({"error": "No sprints found for project"}), 404
+
+# ============================================================================
+# RETROSPECTIVE ANALYTICS ROUTES
+# ============================================================================
+
+@analytics_bp.route("/analytics/retrospective/<int:sprint_id>")
+@clerk_auth.require_auth
+def sprint_retrospective(sprint_id):
+    """Analyze sprint for retrospective insights"""
+    project_id = request.args.get('project_id', type=int)
+    insights = analyze_sprint_retrospective(sprint_id, project_id)
+    
+    if 'error' in insights:
+        return jsonify(insights), 404
+    
+    return jsonify(insights)
+
+@analytics_bp.route("/analytics/retrospective/actions/<int:sprint_id>")
+@clerk_auth.require_auth
+def retrospective_actions(sprint_id):
+    """Track effectiveness of retrospective actions"""
+    from flask import request
+    import json
+    
+    action_items = request.json.get('action_items', [])
+    follow_up_sprints = request.json.get('follow_up_sprints', [])
+    
+    effectiveness = track_action_item_effectiveness(sprint_id, action_items, follow_up_sprints)
+    return jsonify(effectiveness)
+
+@analytics_bp.route("/analytics/retrospective/trends")
+@clerk_auth.require_auth
+def retrospective_trends():
+    """Get retrospective trends across multiple sprints"""
+    project_id = request.args.get('project_id', type=int)
+    sprints_count = request.args.get('sprints_count', 5, type=int)
+    
+    trends = get_retrospective_trends(project_id, sprints_count)
+    return jsonify(trends)
+
+# ============================================================================
+# BUSINESS VALUE ROUTES
+# ============================================================================
+
+@analytics_bp.route("/analytics/business-value/metrics")
+@clerk_auth.require_auth
+def business_value_metrics():
+    """Get business value metrics"""
+    project_id = request.args.get('project_id', type=int)
+    metrics = calculate_business_value_metrics(project_id)
+    
+    if not metrics:
+        return jsonify({"error": "No business value metrics found"}), 404
+    
+    return jsonify(metrics)
+
+@analytics_bp.route("/analytics/business-value/backlog-prioritization")
+@clerk_auth.require_auth
+def backlog_prioritization():
+    """Prioritize backlog by business value"""
+    from flask import request
+    import json
+    
+    backlog_items = request.json.get('backlog_items', [])
+    project_id = request.args.get('project_id', type=int)
+    
+    if not backlog_items:
+        return jsonify({"error": "No backlog items provided"}), 400
+    
+    prioritized_backlog = prioritize_backlog_by_value(backlog_items, project_id)
+    return jsonify({
+        'prioritized_backlog': prioritized_backlog,
+        'total_items': len(prioritized_backlog)
+    })
+
+@analytics_bp.route("/analytics/business-value/roi-trends")
+@clerk_auth.require_auth
+def roi_trends():
+    """Calculate ROI trends over time"""
+    project_id = request.args.get('project_id', type=int)
+    
+    # Get ROI for last 6 sprints
+    from repositories.milestone_repository import get_milestones_by_project, get_all_milestones
+    
+    if project_id:
+        milestones_data = get_milestones_by_project(project_id)
+    else:
+        milestones_data = [{'id': m.id} for m in get_all_milestones()]
+    
+    roi_trends = []
+    for milestone_data in milestones_data[:6]:  # Last 6 sprints
+        roi = calculate_sprint_roi(project_id)
+        roi_trends.append({
+            'sprint_id': milestone_data['id'],
+            'roi': roi
+        })
+    
+    return jsonify({
+        'roi_trends': roi_trends,
+        'average_roi': round(sum(r['roi'] for r in roi_trends) / len(roi_trends), 2) if roi_trends else 0
+    })
+
+# ============================================================================
+# TEAM COLLABORATION ROUTES
+# ============================================================================
+
+@analytics_bp.route("/analytics/collaboration/team-analysis")
+@clerk_auth.require_auth
+def team_collaboration_analysis():
+    """Analyze team collaboration patterns"""
+    project_id = request.args.get('project_id', type=int)
+    
+    # Simplified collaboration analysis
+    from repositories.milestone_repository import get_milestones_by_project, get_milestone_by_id, get_all_milestones
+    
+    if project_id:
+        milestones_data = get_milestones_by_project(project_id)
+        milestones = [get_milestone_by_id(m['id']) for m in milestones_data if get_milestone_by_id(m['id'])]
+    else:
+        milestones = get_all_milestones()
+    
+    collaboration_metrics = {
+        'pair_programming_sessions': estimate_pair_programming(milestones),
+        'code_review_participation': analyze_review_participation(milestones),
+        'knowledge_sharing_metrics': estimate_knowledge_sharing(milestones),
+        'cross_team_collaboration': analyze_cross_team_work(milestones),
+        'mentorship_effectiveness': estimate_mentorship_impact(milestones)
     }
-  ],
-  "total_issues_closed": 10,
-  "average_velocity_hours": 20.5,
-  "backlog_remaining_hours": 40,
-  "estimated_sprints_to_finish_backlog": 2
-}
-```
+    
+    return jsonify(collaboration_metrics)
 
-### 10. Velocity Chart
-**GET** `/analytics/velocity/chart`
-
-Returns velocity chart data for visualization.
-
-**Response:**
-```json
-{
-  "chart_data": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
-  "sprints": ["Sprint 1", "Sprint 2", "Sprint 3"],
-  "velocities": [16.5, 20.0, 18.5]
-}
-```
-
-### 11. Epic Progress
-**GET** `/epic/progress/{epic_id}`
-
-Returns epic progress data for charts.
-
-**Response:**
-```json
-{
-  "epic_id": 1,
-  "epic_title": "GitLab Analytics Platform",
-  "progress_data": [
-    {
-      "date": "2025-07-29",
-      "estimated_progress": 0,
-      "actual_progress": 0
+def estimate_pair_programming(milestones):
+    """Estimate pair programming sessions"""
+    # Simplified estimation based on issue patterns
+    total_issues = sum(len(m.issues) for m in milestones)
+    complex_issues = sum(1 for m in milestones for i in m.issues if i.time_estimate and i.time_estimate > 8)
+    
+    return {
+        'estimated_sessions': complex_issues,
+        'participation_rate': round((complex_issues / total_issues * 100), 2) if total_issues > 0 else 0
     }
-  ]
-}
-```
 
-### 12. Period Success Check
-**GET** `/analytics/is-period-successful?epic_id=1&from_date=2025-07-29&to_date=2025-08-15`
-
-Returns whether an epic was successful in a specific time period.
-
-**Query Parameters:**
-- `epic_id`: Epic ID to check
-- `from_date`: Start date (YYYY-MM-DD)
-- `to_date`: End date (YYYY-MM-DD)
-
-**Response:**
-```json
-{
-  "epic_id": 1,
-  "from_date": "2025-07-29",
-  "to_date": "2025-08-15",
-  "successful": true,
-  "total_issues": 4,
-  "closed_issues": 4
-}
-```
-
----
-
-## 🕒 **GitLab Time-Based Analytics**
-
-### 13. GitLab Velocity Analysis
-**GET** `/analytics/gitlab/velocity`
-
-Returns comprehensive time-based velocity metrics.
-
-**Response:**
-```json
-[
-  {
-    "milestone_id": 1,
-    "milestone_title": "Sprint 1",
-    "total_issues": 4,
-    "closed_issues": 2,
-    "total_estimated_hours": 34.0,
-    "total_spent_hours": 14.5,
-    "velocity_estimated_hours": 16.0,
-    "velocity_spent_hours": 14.5,
-    "estimation_accuracy_percent": 90.63,
-    "avg_hours_per_issue": 8.0
-  }
-]
-```
-
-### 14. Team Capacity Analysis (with Project Filter)
-**GET** `/analytics/team-capacity?project_id=1`
-
-Returns team capacity analysis with optional project filtering.
-
-**Query Parameters:**
-- `project_id` (optional): Filter by specific project ID
-
-**Response:**
-```json
-[
-  {
-    "team_member": "Nikos",
-    "total_issues": 6,
-    "closed_issues": 3,
-    "total_estimated_hours": 48.0,
-    "total_spent_hours": 22.0,
-    "velocity_hours": 24.0,
-    "estimation_accuracy_percent": 91.67,
-    "avg_hours_per_issue": 8.0,
-    "completion_rate": 50.0
-  }
-]
-```
-
-### 15. Issue Type Analysis
-**GET** `/analytics/gitlab/issue-types`
-
-Returns performance analysis by issue type.
-
-**Response:**
-```json
-[
-  {
-    "issue_type": "feature",
-    "total_count": 6,
-    "closed_count": 2,
-    "total_estimated_hours": 60.0,
-    "total_spent_hours": 20.0,
-    "velocity_hours": 20.0,
-    "estimation_accuracy_percent": 100.0,
-    "avg_hours_per_issue": 10.0,
-    "completion_rate": 33.33
-  }
-]
-```
-
-### 16. Priority Analysis
-**GET** `/analytics/gitlab/priorities`
-
-Returns performance analysis by priority level.
-
-**Response:**
-```json
-[
-  {
-    "priority": "high",
-    "total_count": 4,
-    "closed_count": 1,
-    "total_estimated_hours": 44.0,
-    "total_spent_hours": 8.0,
-    "velocity_hours": 8.0,
-    "estimation_accuracy_percent": 100.0,
-    "avg_hours_per_issue": 8.0,
-    "completion_rate": 25.0
-  }
-]
-```
-
-### 17. Burndown Chart Data
-**GET** `/analytics/gitlab/burndown/{milestone_id}`
-
-Returns burndown chart data for a specific milestone.
-
-**Response:**
-```json
-{
-  "milestone_id": 1,
-  "milestone_title": "Sprint 1",
-  "total_estimated_hours": 34.0,
-  "start_date": "2025-07-29",
-  "end_date": "2025-08-09",
-  "burndown_data": [
-    {
-      "date": "2025-07-29",
-      "actual_remaining_hours": 34.0,
-      "ideal_remaining_hours": 34.0,
-      "day_number": 1
+def analyze_review_participation(milestones):
+    """Analyze code review participation"""
+    # Simplified analysis
+    total_issues = sum(len(m.issues) for m in milestones)
+    reviewed_issues = sum(1 for m in milestones for i in m.issues if i.state == "closed")
+    
+    return {
+        'reviewed_issues': reviewed_issues,
+        'review_rate': round((reviewed_issues / total_issues * 100), 2) if total_issues > 0 else 0
     }
-  ]
-}
-```
 
----
-
-## 📊 **Advanced Analytics**
-
-### 18. Lead Time Analysis
-**GET** `/analytics/lead-time`
-
-Returns lead time analysis for all issues.
-
-**Response:**
-```json
-{
-  "total_issues_analyzed": 6,
-  "average_lead_time_days": 5.33,
-  "median_lead_time_days": 4.0,
-  "min_lead_time_days": 2,
-  "max_lead_time_days": 12,
-  "lead_time_std_dev": 3.27,
-  "issues": [...]
-}
-```
-
-### 19. Throughput Analysis
-**GET** `/analytics/throughput?days=30`
-
-Returns throughput analysis for the specified period.
-
-**Query Parameters:**
-- `days` (optional): Analysis period in days (default: 30)
-
-**Response:**
-```json
-{
-  "analysis_period_days": 30,
-  "start_date": "2025-07-01",
-  "end_date": "2025-07-31",
-  "total_issues_completed": 6,
-  "average_daily_throughput": 0.2,
-  "average_weekly_throughput": 1.4,
-  "daily_throughput": {...},
-  "weekly_throughput": {...}
-}
-```
-
-### 20. Defect Rate Analysis
-**GET** `/analytics/defect-rate`
-
-Returns defect rate analysis.
-
-**Response:**
-```json
-{
-  "total_issues": 12,
-  "total_closed_issues": 6,
-  "defect_rate_percent": 16.67,
-  "closed_defect_rate_percent": 16.67,
-  "issue_type_breakdown": {
-    "bug": 2,
-    "feature": 6,
-    "task": 4
-  },
-  "closed_issue_type_breakdown": {
-    "bug": 1,
-    "feature": 2,
-    "task": 3
-  }
-}
-```
-
-### 21. Velocity Forecasting
-**GET** `/analytics/velocity-forecast?sprints_ahead=3`
-
-Returns velocity forecasting for future sprints.
-
-**Query Parameters:**
-- `sprints_ahead` (optional): Number of sprints to forecast (default: 3)
-
-**Response:**
-```json
-{
-  "historical_velocities": [16.0, 20.0, 15.0],
-  "average_velocity_hours": 17.0,
-  "velocity_trend": -0.5,
-  "forecasts": [
-    {
-      "sprint_number": 1,
-      "forecasted_velocity_hours": 16.5,
-      "confidence_level": "medium"
+def estimate_knowledge_sharing(milestones):
+    """Estimate knowledge sharing metrics
+    
+    This function estimates the knowledge sharing metrics based on the issues in the milestones.
+    It counts the issues that have a title longer than 30 characters and calculates the documentation rate.
+    
+    Args:
+        milestones: List of milestones
+        Returns:
+        Dictionary containing the following metrics:
+            documented_issues: Number of issues with titles longer than 30 characters
+            documentation_rate: Percentage of issues with titles longer than 30 characters
+            
+    Example:
+        >>> milestones = [
+        ...     Milestone(issues=[
+        ...         Issue(title="This is a short title"),
+        ...         Issue(title="This is a longer title that should be documented")
+        ...     ])
+        ... ]
+        >>> estimate_knowledge_sharing(milestones)
+    """
+    # Simplified estimation
+    total_issues = sum(len(m.issues) for m in milestones)
+    documented_issues = sum(1 for m in milestones for i in m.issues if len(i.title or "") > 30)
+    
+    return {
+        'documented_issues': documented_issues,
+        'documentation_rate': round((documented_issues / total_issues * 100), 2) if total_issues > 0 else 0
     }
-  ]
-}
-```
 
-### 22. Team Velocity Trends
-**GET** `/analytics/team-velocity-trends`
-
-Returns velocity trends by team member.
-
-**Response:**
-```json
-{
-  "Nikos": {
-    "average_velocity_hours": 12.0,
-    "velocity_trend": 2.0,
-    "sprints_analyzed": 3,
-    "velocity_history": [...]
-  }
-}
-```
-
-### 23. Sprint Health Indicators
-**GET** `/analytics/sprint-health/{milestone_id}`
-
-Returns comprehensive health indicators for a specific sprint.
-
-**Response:**
-```json
-{
-  "milestone_id": 1,
-  "milestone_title": "Sprint 1",
-  "health_status": "good",
-  "completion_rate_percent": 50.0,
-  "estimation_accuracy_percent": 90.63,
-  "progress_percentage": 50.0,
-  "total_issues": 4,
-  "closed_issues": 2,
-  "total_estimated_hours": 34.0,
-  "total_spent_hours": 14.5,
-  "velocity_hours": 16.0,
-  "days_elapsed": 5,
-  "total_days": 11,
-  "days_remaining": 6
-}
-```
-
----
-
-## 📈 **Dashboard Endpoints**
-
-### 24. Project Overview Dashboard
-**GET** `/dashboard/overview`
-
-Returns comprehensive project overview.
-
-**Response:**
-```json
-{
-  "summary": {
-    "total_projects": 1,
-    "total_milestones": 3,
-    "total_epics": 1,
-    "total_issues": 12,
-    "total_closed_issues": 6,
-    "total_estimated_hours": 102.0,
-    "total_spent_hours": 43.0,
-    "overall_completion_rate": 50.0,
-    "estimation_accuracy": 42.16
-  },
-  "recent_activity": [...],
-  "health_indicators": {
-    "completion_rate_status": "needs_attention",
-    "estimation_accuracy_status": "needs_attention"
-  }
-}
-```
-
-### 25. Team Dashboard
-**GET** `/dashboard/team`
-
-Returns team-focused dashboard.
-
-**Response:**
-```json
-{
-  "team_capacity": [...],
-  "team_performance": [...],
-  "lead_time_summary": {
-    "average_lead_time_days": 5.33,
-    "total_issues_analyzed": 6
-  },
-  "throughput_summary": {
-    "total_issues_completed": 6,
-    "average_daily_throughput": 0.2,
-    "average_weekly_throughput": 1.4
-  }
-}
-```
-
-### 26. Sprint Dashboard
-**GET** `/dashboard/sprint`
-
-Returns sprint-focused dashboard.
-
-**Response:**
-```json
-{
-  "current_sprint": {
-    "id": 2,
-    "title": "Sprint 2",
-    "start_date": "2025-08-10",
-    "due_date": "2025-08-21",
-    "progress": {...}
-  },
-  "upcoming_sprints": [...],
-  "recent_completed_sprints": [...],
-  "velocity_summary": {
-    "average_velocity_hours": 17.0,
-    "total_sprints_analyzed": 3
-  },
-  "defect_summary": {
-    "defect_rate_percent": 16.67,
-    "total_issues": 12
-  }
-}
-```
-
-### 27. Project Health Dashboard
-**GET** `/dashboard/health`
-
-Returns project health indicators.
-
-**Response:**
-```json
-{
-  "sprint_health": [...],
-  "epic_health": [...],
-  "overall_health": {
-    "health_score": 65.0,
-    "health_status": "good",
-    "total_sprints": 3,
-    "excellent_sprints": 1,
-    "good_sprints": 1
-  }
-}
-```
-
----
-
-## 🔗 **GitLab Integration**
-
-### 28. Import from GitLab API
-**POST** `/import/gitlab`
-
-Import data from GitLab API.
-
-**Request Body:**
-```json
-{
-  "project_ids": [123, 456],
-  "gitlab_url": "https://gitlab.com",
-  "access_token": "your-gitlab-access-token"
-}
-```
-
-**Response:**
-```json
-{
-  "message": "Import completed",
-  "results": [
-    {
-      "project_id": 123,
-      "milestones_imported": 5,
-      "issues_imported": 25
+def analyze_cross_team_work(milestones):
+    """Analyze cross-team collaboration"""
+    # Simplified analysis
+    assignees = set()
+    for milestone in milestones:
+        for issue in milestone.issues:
+            if issue.assignee:
+                assignees.add(issue.assignee)
+    
+    return {
+        'unique_assignees': len(assignees),
+        'collaboration_diversity': 'high' if len(assignees) > 5 else 'medium' if len(assignees) > 3 else 'low'
     }
-  ]
-}
-```
 
----
-
-## 🚀 **Project-Specific Endpoints**
-
-### 29. Project Milestones
-**GET** `/analytics/projects/{project_id}/milestones`
-
-Returns milestones for a specific project.
-
-### 30. Project Epics
-**GET** `/analytics/projects/{project_id}/epics`
-
-Returns epics for a specific project.
-
-### 31. Project Epic Progress
-**GET** `/analytics/projects/{project_id}/epic-progress/{epic_id}`
-
-Returns epic progress for a specific project and epic.
-
-### 32. Project Velocity
-**GET** `/analytics/projects/{project_id}/velocity`
-
-Returns velocity analysis for a specific project.
-
-### 33. Project Velocity Stats
-**GET** `/analytics/projects/{project_id}/velocity/stats`
-
-Returns velocity statistics for a specific project.
-
-### 34. Project Velocity Chart
-**GET** `/analytics/projects/{project_id}/velocity/chart`
-
-Returns velocity chart data for a specific project.
-
-### 35. Project GitLab Velocity
-**GET** `/analytics/projects/{project_id}/gitlab/velocity`
-
-Returns GitLab velocity analysis for a specific project.
-
-### 36. Project Team Capacity
-**GET** `/analytics/projects/{project_id}/gitlab/team-capacity`
-
-Returns team capacity analysis for a specific project.
-
-### 37. Project Issue Types
-**GET** `/analytics/projects/{project_id}/gitlab/issue-types`
-
-Returns issue type analysis for a specific project.
-
-### 38. Project Priorities
-**GET** `/analytics/projects/{project_id}/gitlab/priorities`
-
-Returns priority analysis for a specific project.
-
-### 39. Project Burndown
-**GET** `/analytics/projects/{project_id}/gitlab/burndown/{milestone_id}`
-
-Returns burndown chart data for a specific project and milestone.
-
-### 40. Project Lead Time
-**GET** `/analytics/projects/{project_id}/lead-time`
-
-Returns lead time analysis for a specific project.
-
-### 41. Project Throughput
-**GET** `/analytics/projects/{project_id}/throughput`
-
-Returns throughput analysis for a specific project.
-
-### 42. Project Defect Rate
-**GET** `/analytics/projects/{project_id}/defect-rate`
-
-Returns defect rate analysis for a specific project.
-
-### 43. Project Velocity Forecast
-**GET** `/analytics/projects/{project_id}/velocity-forecast`
-
-Returns velocity forecasting for a specific project.
-
-### 44. Project Team Velocity Trends
-**GET** `/analytics/projects/{project_id}/team-velocity-trends`
-
-Returns team velocity trends for a specific project.
-
-### 45. Project Sprint Health
-**GET** `/analytics/projects/{project_id}/sprint-health/{milestone_id}`
-
-Returns sprint health indicators for a specific project and milestone.
-
-### 46. Project Dashboard Overview
-**GET** `/analytics/projects/{project_id}/dashboard/overview`
-
-Returns project overview dashboard for a specific project.
-
-### 47. Project Team Dashboard
-**GET** `/analytics/projects/{project_id}/dashboard/team`
-
-Returns team dashboard for a specific project.
-
-### 48. Project Sprint Dashboard
-**GET** `/analytics/projects/{project_id}/dashboard/sprint`
-
-Returns sprint dashboard for a specific project.
-
-### 49. Project Health Dashboard
-**GET** `/analytics/projects/{project_id}/dashboard/health`
-
-Returns health dashboard for a specific project.
-
-### 50. Project Retrospective
-**GET** `/analytics/projects/{project_id}/retrospective/{sprint_id}`
-
-Returns sprint retrospective analysis for a specific project and sprint.
-
-### 51. Project Retrospective Actions
-**GET** `/analytics/projects/{project_id}/retrospective/actions/{sprint_id}`
-
-Returns retrospective action items for a specific project and sprint.
-
-### 52. Project Retrospective Trends
-**GET** `/analytics/projects/{project_id}/retrospective/trends`
-
-Returns retrospective trends for a specific project.
-
-### 53. Project GitLab Full Data
-**GET** `/analytics/projects/{project_id}/gitlab/full-data`
-
-Returns full GitLab data for a specific project.
-
-### 54. Save GitLab Data to Database
-**POST** `/analytics/projects/{project_id}/gitlab/save-to-database`
-
-Saves GitLab data to database for a specific project.
-
-### 55. Create Custom Epic
-**POST** `/analytics/projects/{project_id}/epics`
-
-Creates a custom epic for a specific project.
-
-### 56. Create Custom Milestone
-**POST** `/analytics/projects/{project_id}/milestones`
-
-Creates a custom milestone for a specific project.
-
-### 57. Available Issues
-**GET** `/analytics/projects/{project_id}/available-issues`
-
-Returns available issues for a specific project.
-
----
-
-## 🚀 **Advanced Analytics Features**
-
-### 58. Sprint Planning Capacity
-**GET** `/analytics/sprint-planning/capacity`
-
-Calculates team capacity for sprint planning using dynamic developer settings.
-
-**Query Parameters:**
-- `team_members` (required): Team member names (can be multiple)
-- `sprint_duration` (optional): Sprint duration in weeks (default: 2)
-- `project_id` (optional): Project ID for context
-
-**Example:**
-```
-GET /analytics/sprint-planning/capacity?team_members=Nikos&team_members=Maria&sprint_duration=2&project_id=1
-```
-
-**Response:**
-```json
-{
-  "Nikos": {
-    "historical_velocity": 24.0,
-    "available_hours": 68.0,
-    "recommended_capacity": 24.0,
-    "developer_config": {
-      "working_hours_per_day": 8.0,
-      "working_days_per_week": 5,
-      "availability_factor": 0.85,
-      "experience_level": "senior",
-      "hourly_rate": 45.0
-    },
-    "working_hours_per_day": 8.0,
-    "working_days_per_week": 5,
-    "availability_factor": 0.85,
-    "provider_name": "gitlab",
-    "external_username": "Nikos"
-  },
-  "Maria": {
-    "historical_velocity": 18.0,
-    "available_hours": 60.0,
-    "recommended_capacity": 18.0,
-    "developer_config": {
-      "working_hours_per_day": 7.5,
-      "working_days_per_week": 5,
-      "availability_factor": 0.8,
-      "experience_level": "intermediate",
-      "hourly_rate": 35.0
-    },
-    "working_hours_per_day": 7.5,
-    "working_days_per_week": 5,
-    "availability_factor": 0.8,
-    "provider_name": "gitlab",
-    "external_username": "Maria"
-  }
-}
-```
-
-### 59. Sprint Planning Commitment
-**GET** `/analytics/sprint-planning/commitment`
-
-Predicts realistic sprint commitment based on team capacity and historical data.
-
-**Query Parameters:**
-- `team_members` (required): Team member names (can be multiple)
-- `sprint_duration` (optional): Sprint duration in weeks (default: 2)
-- `project_id` (optional): Project ID for context
-
-**Example:**
-```
-GET /analytics/sprint-planning/commitment?team_members=Nikos&team_members=Maria&sprint_duration=2&project_id=1
-```
-
-**Response:**
-```json
-{
-  "total_capacity": 42.0,
-  "total_estimated_effort": 0,
-  "recommended_commitment": 0,
-  "commitment_probability": 1.0,
-  "risk_level": "low",
-  "accuracy_factor": 0.9,
-  "team_breakdown": {
-    "Nikos": {
-      "capacity": 24.0,
-      "utilization": "optimal"
-    },
-    "Maria": {
-      "capacity": 18.0,
-      "utilization": "optimal"
+def estimate_mentorship_impact(milestones):
+    """Estimate mentorship effectiveness"""
+    # Simplified estimation
+    total_issues = sum(len(m.issues) for m in milestones)
+    complex_issues = sum(1 for m in milestones for i in m.issues if i.time_estimate and i.time_estimate > 16)
+    
+    return {
+        'complex_issues_handled': complex_issues,
+        'mentorship_opportunities': complex_issues,
+        'effectiveness_score': round((complex_issues / total_issues * 100), 2) if total_issues > 0 else 0
     }
-  }
-}
-```
 
-### 60. Quality Metrics
-**GET** `/analytics/quality/metrics`
+# ============================================================================
+# ISSUES ENDPOINTS
+# ============================================================================
 
-Returns quality metrics analysis.
+@analytics_bp.route("/issues")
+def get_all_issues():
+    """Get all issues from all projects"""
+    from models.models import Issue, Project, Milestone
+    
+    try:
+        # Get all issues with related data
+        issues = Issue.query.all()
+        
+        result = []
+        for issue in issues:
+            # Get project info
+            project = Project.query.get(issue.project_id) if issue.project_id else None
+            milestone = Milestone.query.get(issue.milestone_id) if issue.milestone_id else None
+            
+            issue_data = {
+                "id": issue.id,
+                "title": issue.title,
+                "state": issue.state,
+                "assignee": issue.assignee,
+                "reporter": issue.reporter,
+                "created_date": issue.created_date.isoformat() if issue.created_date else None,
+                "closed_date": issue.closed_date.isoformat() if issue.closed_date else None,
+                "time_estimate": issue.time_estimate,
+                "time_spent": issue.time_spent,
+                "labels": issue.labels or [],
+                "issue_type": issue.issue_type,
+                "priority": issue.priority,
+                "description": issue.description,
+                "project": {
+                    "id": project.id,
+                    "name": project.name,
+                    "provider_type": project.provider_type,
+                    "company_name": project.company_name
+                } if project else None,
+                "milestone": {
+                    "id": milestone.id,
+                    "title": milestone.title,
+                    "start_date": milestone.start_date.isoformat() if milestone.start_date else None,
+                    "due_date": milestone.due_date.isoformat() if milestone.due_date else None,
+                    "state": milestone.state
+                } if milestone else None
+            }
+            result.append(issue_data)
+        
+        return jsonify({
+            "issues": result,
+            "total_count": len(result),
+            "open_count": len([i for i in result if i["state"] == "opened"]),
+            "closed_count": len([i for i in result if i["state"] == "closed"]),
+            "statistics": {
+                "by_state": {
+                    "opened": len([i for i in result if i["state"] == "opened"]),
+                    "closed": len([i for i in result if i["state"] == "closed"])
+                },
+                "by_type": {},
+                "by_priority": {},
+                "total_time_estimate": sum(i["time_estimate"] or 0 for i in result),
+                "total_time_spent": sum(i["time_spent"] or 0 for i in result)
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to get issues: {str(e)}"}), 500
 
-### 61. Technical Debt Impact
-**GET** `/analytics/quality/tech-debt-impact`
+# ============================================================================
+# RELEASE PLANNING ROUTES
+# ============================================================================
 
-Returns technical debt impact analysis.
-
-### 62. Sprint Risks
-**GET** `/analytics/risks/sprint/{sprint_id}`
-
-Returns risk analysis for a specific sprint.
-
-### 63. Project Risks
-**GET** `/analytics/risks/project/{project_id}`
-
-Returns risk analysis for a specific project.
-
-### 64. Sprint Retrospective
-**GET** `/analytics/retrospective/{sprint_id}`
-
-Returns sprint retrospective analysis.
-
-### 65. Retrospective Actions
-**GET** `/analytics/retrospective/actions/{sprint_id}`
-
-Returns retrospective action items.
-
-### 66. Retrospective Trends
-**GET** `/analytics/retrospective/trends`
-
-Returns retrospective trends analysis.
-
-### 67. Business Value Metrics
-**GET** `/analytics/business-value/metrics`
-
-Returns business value metrics analysis.
-
-### 68. Backlog Prioritization
-**GET** `/analytics/business-value/backlog-prioritization`
-
-Returns backlog prioritization analysis.
-
-### 69. ROI Trends
-**GET** `/analytics/business-value/roi-trends`
-
-Returns ROI trends analysis.
-
-### 70. Team Collaboration Analysis
-**GET** `/analytics/collaboration/team-analysis`
-
-Returns team collaboration analysis.
-
-### 71. Release Planning Readiness
-**GET** `/analytics/release-planning/readiness/{release_id}`
-
-Returns release planning readiness analysis.
-
----
-
-## 👥 **Developer Management Endpoints**
-
-### 80. Get All Developers
-**GET** `/developers`
-
-Returns all active developers.
-
-**Query Parameters:**
-- `project_id` (optional): Filter by specific project ID
-- `team_name` (optional): Filter by team name
-
-**Response:**
-```json
-[
-  {
-    "id": 1,
-    "name": "Nikos",
-    "email": "nikos@company.com",
-    "provider_type": "gitlab",
-    "provider_username": "nikos.gitlab",
-    "working_hours_per_day": 8.0,
-    "working_days_per_week": 5,
-    "availability_factor": 0.85,
-    "experience_level": "senior",
-    "hourly_rate": 45.0,
-    "team_name": "Backend Team",
-    "project_id": 1,
-    "is_active": true
-  }
-]
-```
-
-### 81. Get Developer by Name
-**GET** `/developers/{name}`
-
-Returns specific developer information.
-
-**Response:**
-```json
-{
-  "id": 1,
-  "name": "Nikos",
-  "email": "nikos@company.com",
-  "provider_type": "gitlab",
-  "provider_username": "nikos.gitlab",
-  "provider_user_id": "123",
-  "provider_data": {...},
-  "working_hours_per_day": 8.0,
-  "working_days_per_week": 5,
-  "availability_factor": 0.85,
-  "experience_level": "senior",
-  "hourly_rate": 45.0,
-  "team_name": "Backend Team",
-  "project_id": 1,
-  "is_active": true,
-  "start_date": "2025-01-01",
-  "end_date": null
-}
-```
-
-### 82. Create New Developer
-**POST** `/developers`
-
-Creates a new developer.
-
-**Request Body:**
-```json
-{
-  "name": "John Doe",
-  "email": "john@company.com",
-  "provider_type": "gitlab",
-  "provider_username": "john.doe",
-  "working_hours_per_day": 8.0,
-  "working_days_per_week": 5,
-  "availability_factor": 0.8,
-  "experience_level": "intermediate",
-  "hourly_rate": 35.0,
-  "team_name": "Frontend Team",
-  "project_id": 1
-}
-```
-
-**Response:**
-```json
-{
-  "message": "Developer created successfully",
-  "developer": {
-    "id": 4,
-    "name": "John Doe",
-    "email": "john@company.com",
-    "working_hours_per_day": 8.0,
-    "working_days_per_week": 5,
-    "availability_factor": 0.8,
-    "experience_level": "intermediate",
-    "hourly_rate": 35.0,
-    "team_name": "Frontend Team",
-    "project_id": 1
-  }
-}
-```
-
-### 83. Update Developer Information
-**PUT** `/developers/{developer_id}`
-
-Updates developer information.
-
-**Request Body:**
-```json
-{
-  "working_hours_per_day": 7.5,
-  "availability_factor": 0.9,
-  "hourly_rate": 40.0
-}
-```
-
-**Response:**
-```json
-{
-  "message": "Developer updated successfully",
-  "developer": {
-    "id": 1,
-    "name": "Nikos",
-    "working_hours_per_day": 7.5,
-    "availability_factor": 0.9,
-    "hourly_rate": 40.0
-  }
-}
-```
-
-### 84. Get Developer Capacity
-**GET** `/developers/{name}/capacity`
-
-Returns developer capacity configuration and calculations.
-
-**Query Parameters:**
-- `sprint_duration` (optional): Sprint duration in weeks (default: 2)
-
-**Response:**
-```json
-{
-  "developer_name": "Nikos",
-  "sprint_duration_weeks": 2,
-  "capacity_config": {
-    "working_hours_per_day": 8.0,
-    "working_days_per_week": 5,
-    "availability_factor": 0.85,
-    "experience_level": "senior",
-    "hourly_rate": 45.0
-  },
-  "calculated_capacity": {
-    "total_working_hours": 80.0,
-    "available_hours": 68.0,
-    "daily_capacity": 6.8,
-    "weekly_capacity": 34.0
-  }
-}
-```
-
-### 85. Get All Teams
-**GET** `/developers/teams`
-
-Returns all unique team names.
-
-**Response:**
-```json
-[
-  "Backend Team",
-  "Frontend Team",
-  "QA Team"
-]
-```
-
-### 86. Bulk Capacity Calculation
-**POST** `/developers/capacity/bulk`
-
-Calculates capacity for multiple developers.
-
-**Request Body:**
-```json
-{
-  "team_members": ["Nikos", "Maria", "Kostas"],
-  "sprint_duration": 2
-}
-```
-
-**Response:**
-```json
-{
-  "team_capacity": {
-    "Nikos": {
-      "historical_velocity": 24.0,
-      "available_hours": 68.0,
-      "recommended_capacity": 24.0,
-      "working_hours_per_day": 8.0,
-      "working_days_per_week": 5,
-      "availability_factor": 0.85
+@analytics_bp.route("/analytics/release-planning/readiness/<int:release_id>")
+@clerk_auth.require_auth
+def release_readiness(release_id):
+    """Calculate release readiness score"""
+    from repositories.milestone_repository import get_milestone_by_id
+    from services.analytics_service import calculate_code_quality_metrics, estimate_test_coverage
+    
+    # Get the release milestone
+    release_milestone = get_milestone_by_id(release_id)
+    if not release_milestone:
+        return jsonify({"error": "Release not found"}), 404
+    
+    # Calculate actual readiness factors based on real data
+    total_issues = len(release_milestone.issues)
+    closed_issues = len([i for i in release_milestone.issues if i.state == "closed"])
+    
+    # Feature completeness based on closed issues
+    feature_completeness = (closed_issues / total_issues * 100) if total_issues > 0 else 0
+    
+    # Test coverage estimation (simplified)
+    test_coverage = estimate_test_coverage(release_milestone.project_id) if hasattr(release_milestone, 'project_id') else 75
+    
+    # Bug density calculation
+    bug_issues = len([i for i in release_milestone.issues if i.issue_type and 'bug' in i.issue_type.lower()])
+    bug_density = (bug_issues / total_issues * 100) if total_issues > 0 else 0
+    
+    # Documentation completeness (based on issue descriptions)
+    documented_issues = len([i for i in release_milestone.issues if i.description and len(i.description) > 50])
+    documentation_completeness = (documented_issues / total_issues * 100) if total_issues > 0 else 0
+    
+    # Stakeholder approval (simplified - could be based on approval workflows)
+    stakeholder_approval = 85  # This would come from actual approval data
+    
+    readiness_factors = {
+        'feature_completeness': round(feature_completeness, 2),
+        'test_coverage': round(test_coverage, 2),
+        'bug_density': round(bug_density, 2),
+        'documentation_completeness': round(documentation_completeness, 2),
+        'stakeholder_approval': stakeholder_approval
     }
-  },
-  "sprint_duration": 2,
-  "total_capacity": 158.0,
-  "total_available_hours": 178.0
-}
-```
-
----
-
-## 🔗 **Provider Mapping Endpoints**
-
-### 87. Get Provider Mappings
-**GET** `/provider-mappings/{provider_name}`
-
-Returns all mappings for a specific provider.
-
-**Response:**
-```json
-{
-  "provider": "gitlab",
-  "mappings": {
-    "nikos.gitlab": "Nikos",
-    "maria.gitlab": "Maria",
-    "kostas.gitlab": "Kostas"
-  },
-  "total_mappings": 3
-}
-```
-
-### 88. Create Provider Mapping
-**POST** `/provider-mappings/{provider_name}/map`
-
-Creates mapping between developer and external username.
-
-**Request Body:**
-```json
-{
-  "developer_name": "Nikos",
-  "external_username": "nikos.gitlab"
-}
-```
-
-**Response:**
-```json
-{
-  "message": "Successfully mapped nikos.gitlab to Nikos for gitlab",
-  "provider": "gitlab",
-  "developer_name": "Nikos",
-  "external_username": "nikos.gitlab"
-}
-```
-
-### 89. Suggest Mappings
-**POST** `/provider-mappings/{provider_name}/suggest`
-
-Suggests mappings for external usernames.
-
-**Request Body:**
-```json
-{
-  "external_usernames": ["john.doe", "jane.smith", "unknown.user"]
-}
-```
-
-**Response:**
-```json
-{
-  "provider": "gitlab",
-  "suggestions": {
-    "john.doe": ["John", "John Doe"],
-    "jane.smith": ["Jane", "Jane Smith"]
-  },
-  "unmapped_users": ["john.doe", "jane.smith"]
-}
-```
-
-### 90. Auto-Map from Data
-**POST** `/provider-mappings/{provider_name}/auto-map`
-
-Auto-maps developers from existing issues data.
-
-**Request Body:**
-```json
-{
-  "issues_data": [
-    {"assignee": "nikos.gitlab", "reporter": "maria.gitlab", "title": "Task 1"},
-    {"assignee": "maria.gitlab", "reporter": "kostas.gitlab", "title": "Task 2"}
-  ]
-}
-```
-
-**Response:**
-```json
-{
-  "provider": "gitlab",
-  "auto_mappings": {
-    "nikos.gitlab": "Nikos",
-    "maria.gitlab": "Maria",
-    "kostas.gitlab": "Kostas"
-  },
-  "mapped_count": 3,
-  "message": "Successfully auto-mapped 3 users for gitlab"
-}
-```
-
-### 91. Resolve External User
-**GET** `/provider-mappings/{provider_name}/resolve/{external_username}`
-
-Resolves external username to developer.
-
-**Response:**
-```json
-{
-  "provider": "gitlab",
-  "external_username": "nikos.gitlab",
-  "resolved_developer": {
-    "id": 1,
-    "name": "Nikos",
-    "email": "nikos@company.com",
-    "working_hours_per_day": 8.0,
-    "working_days_per_week": 5,
-    "availability_factor": 0.85,
-    "experience_level": "senior",
-    "team_name": "Backend Team"
-  },
-  "all_provider_mappings": {
-    "gitlab": "nikos.gitlab",
-    "jira": "nikos.jira",
-    "azure": "n.petrou"
-  }
-}
-```
-
-### 92. Bulk Import Mappings
-**POST** `/provider-mappings/bulk-import`
-
-Bulk imports mappings from various providers.
-
-**Request Body:**
-```json
-{
-  "gitlab": {
-    "Nikos": "nikos.gitlab",
-    "Maria": "maria.gitlab"
-  },
-  "jira": {
-    "Nikos": "nikos.jira",
-    "Maria": "maria.jira"
-  },
-  "azure": {
-    "Nikos": "n.petrou",
-    "Maria": "m.kara"
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "message": "Bulk import completed",
-  "results": {
-    "gitlab": {
-      "successful_mappings": [
-        {"developer_name": "Nikos", "external_username": "nikos.gitlab"},
-        {"developer_name": "Maria", "external_username": "maria.gitlab"}
-      ],
-      "failed_mappings": []
-    },
-    "jira": {
-      "successful_mappings": [...],
-      "failed_mappings": []
+    
+    weights = {
+        'feature_completeness': 0.3,
+        'test_coverage': 0.25,
+        'bug_density': 0.25,
+        'documentation_completeness': 0.1,
+        'stakeholder_approval': 0.1
     }
-  }
-}
-```
-
-### 93. Get All Developers with Mappings
-**GET** `/provider-mappings/all-developers`
-
-Returns all developers with their provider mappings.
-
-**Response:**
-```json
-{
-  "developers": [
-    {
-      "id": 1,
-      "name": "Nikos",
-      "email": "nikos@company.com",
-      "team_name": "Backend Team",
-      "provider_mappings": {
-        "gitlab": "nikos.gitlab",
-        "jira": "nikos.jira",
-        "azure": "n.petrou"
-      },
-      "supported_providers": ["gitlab", "jira", "azure"]
-    }
-  ],
-  "total_developers": 3
-}
-```
-
----
-
-## 🔄 **Developer Import & Provider Integration Endpoints**
-
-### 94. Import Developers from Project Provider
-**POST** `/projects/{project_id}/import-developers`
-
-Imports developers from the project's configured provider (GitLab, Azure, etc.).
-
-**Response:**
-```json
-{
-  "message": "Import completed successfully",
-  "project_id": 1,
-  "provider_type": "gitlab",
-  "imported_count": 5,
-  "updated_count": 2,
-  "skipped_count": 1,
-  "total_processed": 8,
-  "errors": []
-}
-```
-
-### 95. Import Developers with Custom Provider Configuration
-**POST** `/projects/{project_id}/import-developers/custom`
-
-Imports developers using custom provider configuration (without updating project settings).
-
-**Request Body:**
-```json
-{
-  "provider_type": "gitlab",
-  "provider_url": "https://gitlab.company.com",
-  "access_token": "your-gitlab-token",
-  "external_project_id": "123"
-}
-```
-
-**Response:**
-```json
-{
-  "message": "Import completed successfully",
-  "project_id": 1,
-  "provider_type": "gitlab",
-  "imported_count": 5,
-  "updated_count": 0,
-  "skipped_count": 1,
-  "total_processed": 6,
-  "errors": []
-}
-```
-
-### 96. Update Project Provider Configuration
-**PUT** `/projects/{project_id}/provider-config`
-
-Updates the project's provider configuration.
-
-**Request Body:**
-```json
-{
-  "provider_type": "gitlab",
-  "provider_url": "https://gitlab.company.com",
-  "access_token": "your-gitlab-token",
-  "provider_config": {
-    "project_id": "123",
-    "branch": "main"
-  },
-  "company_name": "Company Inc",
-  "company_domain": "company.com"
-}
-```
-
-**Response:**
-```json
-{
-  "message": "Provider configuration updated successfully",
-  "project_id": 1
-}
-```
-
-### 97. Get Project Provider Configuration
-**GET** `/projects/{project_id}/provider-config`
-
-Returns the project's provider configuration (access token is masked).
-
-**Response:**
-```json
-{
-  "id": 1,
-  "name": "Project Name",
-  "provider_type": "gitlab",
-  "provider_url": "https://gitlab.company.com",
-  "provider_token": "***",
-  "provider_config": {
-    "project_id": "123",
-    "branch": "main"
-  },
-  "company_name": "Company Inc",
-  "company_domain": "company.com"
-}
-```
-
-### 98. Get Import Status
-**GET** `/projects/{project_id}/import-status`
-
-Returns the current import status and provider configuration for a project.
-
-**Response:**
-```json
-{
-  "project_id": 1,
-  "project_name": "Project Name",
-  "provider_type": "gitlab",
-  "provider_url": "https://gitlab.company.com",
-  "provider_configured": true,
-  "provider_connection_status": true,
-  "total_developers": 8,
-  "active_developers": 7,
-  "company_name": "Company Inc",
-  "company_domain": "company.com"
-}
-```
-
-### 99. Get Available Providers
-**GET** `/providers/available`
-
-Returns list of supported providers.
-
-**Response:**
-```json
-{
-  "providers": [
-    {
-      "type": "gitlab",
-      "name": "GitLab",
-      "description": "GitLab project management and Git repository hosting",
-      "default_url": "https://gitlab.com",
-      "supports": ["users", "projects", "issues", "milestones"]
-    },
-    {
-      "type": "azure",
-      "name": "Azure DevOps",
-      "description": "Microsoft Azure DevOps Services",
-      "default_url": "https://dev.azure.com",
-      "supports": ["users", "projects", "work_items", "iterations"]
-    }
-  ],
-  "total_providers": 2
-}
-```
-
-### 100. Test Provider Connection
-**POST** `/projects/{project_id}/test-provider-connection`
-
-Tests connection to the project's configured provider or custom configuration.
-
-**Request Body (Optional - for testing custom config):**
-```json
-{
-  "provider_type": "gitlab",
-  "provider_url": "https://gitlab.company.com",
-  "access_token": "your-gitlab-token"
-}
-```
-
-**Response:**
-```json
-{
-  "connection_status": true,
-  "provider_type": "gitlab",
-  "provider_url": "https://gitlab.company.com"
-}
-```
-
-### 101. Preview Import
-**POST** `/projects/{project_id}/preview-import`
-
-Previews developers that would be imported without actually importing them.
-
-**Request Body:**
-```json
-{
-  "provider_type": "gitlab",
-  "provider_url": "https://gitlab.company.com",
-  "access_token": "your-gitlab-token",
-  "external_project_id": "123"
-}
-```
-
-**Response:**
-```json
-{
-  "preview_users": [
-    {
-      "username": "john.doe",
-      "name": "John Doe",
-      "email": "john@company.com",
-      "is_active": true,
-      "will_be_imported": true
-    },
-    {
-      "username": "jane.smith",
-      "name": "Jane Smith",
-      "email": "jane@company.com",
-      "is_active": true,
-      "will_be_imported": true
-    }
-  ],
-  "total_users_found": 10,
-  "active_users_count": 8,
-  "inactive_users_count": 2,
-  "provider_type": "gitlab"
-}
-```
-
-### 102. Sync Developers
-**POST** `/projects/{project_id}/sync-developers`
-
-Syncs existing developers with fresh data from the provider.
-
-**Response:**
-```json
-{
-  "message": "Developers synced successfully",
-  "project_id": 1,
-  "provider_type": "gitlab",
-  "imported_count": 0,
-  "updated_count": 5,
-  "skipped_count": 1,
-  "total_processed": 6,
-  "sync_operation": true,
-  "errors": []
-}
-```
-
----
-
-## 📋 **Basic Data Endpoints**
-
-### 72. Epics List
-**GET** `/epics`
-
-Returns all epics.
-
-**Response:**
-```json
-[
-  {
-    "id": 1,
-    "title": "GitLab Analytics Platform",
-    "start_date": "2025-07-29",
-    "due_date": "2026-01-29",
-    "project_id": 1
-  }
-]
-```
-
-### 73. Milestones List
-**GET** `/milestones`
-
-Returns all milestones.
-
-**Response:**
-```json
-[
-  {
-    "id": 1,
-    "title": "Sprint 1",
-    "start_date": "2025-07-29",
-    "due_date": "2025-08-09",
-    "issues": [...]
-  }
-]
-```
-
-### 74. Health Check
-**GET** `/health`
-
-Returns application health status.
-
-**Response:**
-```json
-{
-  "status": "healthy",
-  "timestamp": "2025-08-04T22:15:00Z"
-}
-```
-
----
-
-## 🔐 **Authentication Endpoints**
-
-### 75. User Profile
-**GET** `/auth/me`
-
-Returns current user profile.
-
-**Response:**
-```json
-{
-  "user": {
-    "id": "user_123",
-    "email": "user@example.com",
-    "first_name": "John",
-    "last_name": "Doe"
-  }
-}
-```
-
-### 76. Protected Route Example
-**GET** `/auth/protected`
-
-Example of a protected route.
-
-**Response:**
-```json
-{
-  "message": "This is a protected route",
-  "user": {
-    "id": "user_123",
-    "email": "user@example.com"
-  }
-}
-```
-
-### 77. Optional Auth Route
-**GET** `/auth/optional`
-
-Example of an optionally protected route.
-
-**Response:**
-```json
-{
-  "message": "You are authenticated",
-  "user": {
-    "id": "user_123",
-    "email": "user@example.com"
-  }
-}
-```
-
-### 78. Generate JWT Token
-**POST** `/auth/generate-jwt`
-
-Generates JWT token for development testing.
-
-**Request Body:**
-```json
-{
-  "email": "user@example.com",
-  "password": "password123"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-  "user": {
-    "id": "user_user_example_com",
-    "email": "user@example.com",
-    "first_name": "Test",
-    "last_name": "User"
-  },
-  "expires_in": 86400,
-  "token_type": "Bearer"
-}
-```
-
-### 79. Token Verification
-**POST** `/auth/verify`
-
-Verifies JWT token.
-
-**Request Body:**
-```json
-{
-  "token": "your-jwt-token"
-}
-```
-
-**Response:**
-```json
-{
-  "valid": true,
-  "user": {
-    "id": "user_123",
-    "email": "user@example.com",
-    "first_name": "John",
-    "last_name": "Doe"
-  },
-  "expires_at": 1735689600
-}
-```
-
----
-
-## 📊 **Complete API Summary**
-
-### **Total Endpoints: 102**
-
-**Core Analytics (12 endpoints):**
-- Projects, Milestones, Epics
-- Epic Success & Status
-- Milestone Success
-- Developer Success & Summary
-- Velocity Analysis & Charts
-- Epic Progress & Period Success
-
-**GitLab Time-Based Analytics (5 endpoints):**
-- Team Capacity (with Project Filter)
-- GitLab Velocity
-- Issue Types
-- Priorities
-- Burndown Charts
-
-**Advanced Analytics (6 endpoints):**
-- Lead Time Analysis
-- Throughput Analysis
-- Defect Rate Analysis
-- Velocity Forecasting
-- Team Velocity Trends
-- Sprint Health Indicators
-
-**Dashboard Endpoints (4 endpoints):**
-- Project Overview
-- Team Dashboard
-- Sprint Dashboard
-- Health Dashboard
-
-**Project-Specific Endpoints (29 endpoints):**
-- All core analytics with project context
-- All GitLab analytics with project context
-- All advanced analytics with project context
-- All dashboard endpoints with project context
-- Project-specific retrospective analysis
-- GitLab integration for specific projects
-- Custom epic/milestone creation
-
-**Advanced Analytics Features (14 endpoints):**
-- Sprint Planning (Capacity & Commitment)
-- Quality Metrics & Technical Debt
-- Risk Analysis (Sprint & Project)
-- Retrospective Analysis & Trends
-- Business Value Metrics & ROI
-- Team Collaboration Analysis
-- Release Planning Readiness
-
-**Basic Data (3 endpoints):**
-- Epics List
-- Milestones List
-- Health Check
-
-**Developer Management (7 endpoints):**
-- Get All Developers (with filters)
-- Get/Create/Update Developer
-- Developer Capacity Calculations
-- Team Management
-- Bulk Capacity Operations
-
-**Provider Mapping (7 endpoints):**
-- Provider-specific Mappings
-- Auto-mapping from Data
-- Bulk Import/Export
-- User Resolution
-- Mapping Suggestions
-
-**Developer Import & Provider Integration (9 endpoints):**
-- Import Developers from Project Provider
-- Custom Provider Import
-- Provider Configuration Management
-- Import Status & Preview
-- Available Providers
-- Connection Testing
-- Developer Sync Operations
-
-**Authentication (5 endpoints):**
-- User Profile
-- Protected Routes
-- Optional Auth
-- JWT Generation
-- Token Verification
-
-**GitLab Integration (1 endpoint):**
-- Import from GitLab API
-
----
-
-## 📊 **Key Metrics Explained**
-
-- **Velocity**: Hours of work completed per sprint
-- **Lead Time**: Days from issue creation to completion
-- **Throughput**: Number of issues completed per time period
-- **Defect Rate**: Percentage of issues that are bugs
-- **Estimation Accuracy**: How well time estimates match actual time spent
-- **Completion Rate**: Percentage of issues completed in a sprint
-- **Team Capacity**: Available hours per team member
-- **Sprint Health**: Overall sprint performance indicators
-
----
-
-## 🔧 **Error Handling**
-
-All endpoints return appropriate HTTP status codes:
-- `200`: Success
-- `400`: Bad Request
-- `401`: Unauthorized (missing or invalid JWT)
-- `404`: Not Found
-- `500`: Internal Server Error
-
-Error responses include a descriptive message:
-```json
-{
-  "error": "Milestone not found"
-}
-```
-
----
-
-## 🚀 **Getting Started**
-
-1. **Start the application:**
-   ```bash
-   python3 app.py
-   ```
-
-2. **Test the API:**
-   ```bash
-   # Test velocity analysis
-   curl -H "Authorization: Bearer <your-jwt-token>" \
-        http://localhost:5001/analytics/velocity/stats?backlog=40
-   
-   # Test dashboard
-   curl -H "Authorization: Bearer <your-jwt-token>" \
-        http://localhost:5001/dashboard/overview
-   ```
-
-3. **Import from GitLab:**
-   ```bash
-   curl -X POST -H "Content-Type: application/json" \
-        -H "Authorization: Bearer <your-jwt-token>" \
-        -d '{"project_ids": [123], "access_token": "your-token"}' \
-        http://localhost:5001/import/gitlab
-   ```
-
-4. **Generate JWT for testing:**
-   ```bash
-   curl -X POST -H "Content-Type: application/json" \
-        -d '{"email": "test@example.com", "password": "password123"}' \
-        http://localhost:5001/auth/generate-jwt
-   ```
-
-5. **Test Developer Management:**
-   ```bash
-   # Get all developers
-   curl -H "Authorization: Bearer <your-jwt-token>" \
-        http://localhost:5001/developers
-   
-   # Get developer capacity
-   curl -H "Authorization: Bearer <your-jwt-token>" \
-        http://localhost:5001/developers/Nikos/capacity?sprint_duration=2
-   
-   # Sprint planning with dynamic settings
-   curl -H "Authorization: Bearer <your-jwt-token>" \
-        "http://localhost:5001/analytics/sprint-planning/capacity?team_members=Nikos&team_members=Maria&sprint_duration=2&project_id=1"
-   ```
-
-6. **Test Provider Mappings:**
-   ```bash
-   # Get GitLab mappings
-   curl -H "Authorization: Bearer <your-jwt-token>" \
-        http://localhost:5001/provider-mappings/gitlab
-   
-   # Resolve external user
-   curl -H "Authorization: Bearer <your-jwt-token>" \
-        http://localhost:5001/provider-mappings/gitlab/resolve/nikos.gitlab
-   ```
-
-7. **Test Developer Import & Provider Integration:**
-   ```bash
-   # Get available providers
-   curl -H "Authorization: Bearer <your-jwt-token>" \
-        http://localhost:5001/providers/available
-   
-   # Update project provider config
-   curl -X PUT -H "Content-Type: application/json" \
-        -H "Authorization: Bearer <your-jwt-token>" \
-        -d '{"provider_type": "gitlab", "provider_url": "https://gitlab.com", "access_token": "your-token"}' \
-        http://localhost:5001/projects/1/provider-config
-   
-   # Test provider connection
-   curl -X POST -H "Content-Type: application/json" \
-        -H "Authorization: Bearer <your-jwt-token>" \
-        -d '{"provider_type": "gitlab", "provider_url": "https://gitlab.com", "access_token": "your-token"}' \
-        http://localhost:5001/projects/1/test-provider-connection
-   
-   # Preview import
-   curl -X POST -H "Content-Type: application/json" \
-        -H "Authorization: Bearer <your-jwt-token>" \
-        -d '{"provider_type": "gitlab", "provider_url": "https://gitlab.com", "access_token": "your-token"}' \
-        http://localhost:5001/projects/1/preview-import
-   
-   # Import developers
-   curl -X POST -H "Authorization: Bearer <your-jwt-token>" \
-        http://localhost:5001/projects/1/import-developers
-   
-   # Check import status
-   curl -H "Authorization: Bearer <your-jwt-token>" \
-        http://localhost:5001/projects/1/import-status
-   ```
-
----
-
-## 🏗️ **Architecture & Future Microservices**
-
-### **Current Monolithic Structure**
-```
-Flask App (Python)
-├── Analytics Service (Core calculations)
-├── Developer Management (Local database)
-├── Provider Integration (GitLab, Azure, etc.)
-├── Project Management
-└── Authentication (Clerk)
-```
-
-### **Future Microservices Architecture**
-```
-API Gateway
-├── Analytics Service (Python/Flask) - Calculations only
-├── User Management Service (.NET) - Developer & provider management
-├── Project Management Service (.NET) - Projects, issues, milestones
-├── Provider Integration Service (.NET) - GitLab, Azure, Jira APIs
-└── Authentication Service (Clerk/Azure AD)
-```
-
-### **Migration Strategy**
-The current API is designed for easy migration to microservices:
-
-1. **Service Abstraction Layer**: All external dependencies go through service interfaces
-2. **Repository Pattern**: Database access is abstracted and can be replaced with HTTP calls
-3. **Configuration-based Switching**: `MICROSERVICES_MODE` flag to switch between local DB and external APIs
-4. **Provider-agnostic Design**: Generic interfaces that work with any provider (GitLab, Azure, Jira)
-
-### **Developer Workflow**
-```
-1. Setup Project with Provider (GitLab/Azure/Jira)
-2. Import Developers from Provider API
-3. Customize Developer Settings (hours, availability, rates)
-4. Use in Analytics (capacity planning, sprint commitment)
-5. Sync changes back to provider (future feature)
-```
-
-### **Key Features for Frontend Integration**
-- **Dynamic Developer Settings**: Real-time capacity calculations based on actual developer configurations
-- **Provider Flexibility**: Support for multiple project management tools (GitLab, Azure DevOps)
-- **Developer Import**: Automatic import of developers from external providers with customizable settings
-- **Provider Configuration**: Project-level provider configuration with connection testing
-- **Sprint Planning**: Advanced capacity and commitment predictions using real developer data
-- **Import Preview**: Preview developers before importing with detailed information
-- **Real-time Sync**: Keep developer data synchronized with external providers
-- **Connection Testing**: Validate provider credentials and connectivity
-- **Team Management**: Organize developers by teams and projects
-- **Historical Data**: Track changes over time for better predictions
-- **Microservices Ready**: Architecture designed for easy migration to .NET microservices
+    
+    readiness_score = sum(readiness_factors[key] * weights[key] for key in readiness_factors)
+    
+    return jsonify({
+        'release_id': release_id,
+        'release_title': release_milestone.title,
+        'readiness_score': round(readiness_score, 2),
+        'readiness_factors': readiness_factors,
+        'weights': weights,
+        'status': 'ready' if readiness_score >= 80 else 'needs_work' if readiness_score >= 60 else 'not_ready',
+        'total_issues': total_issues,
+        'closed_issues': closed_issues,
+        'bug_issues': bug_issues
+    })

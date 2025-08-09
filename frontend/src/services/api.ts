@@ -159,6 +159,37 @@ export interface EpicStatus {
   }>;
 }
 
+export interface Issue {
+  id: number;
+  title: string;
+  state: string;
+  assignee: string;
+  labels?: string[];
+  created_date?: string;
+  closed_date?: string | null;
+  milestone?: {
+    id: number;
+    title: string;
+    due_date: string;
+    start_date: string;
+    state: string;
+  };
+  milestone_id?: number;
+  milestone_title?: string;
+  description?: string;
+  time_estimate?: number;
+  time_spent?: number;
+  issue_type?: string;
+  priority?: string;
+  project?: {
+    id: number;
+    name: string;
+    company_name: string;
+    provider_type: string;
+  };
+  reporter?: string;
+}
+
 export interface Milestone {
   id: number;
   title: string;
@@ -1387,6 +1418,17 @@ export class GitLabAnalyticsAPI {
   static async getProjectRetrospectiveTrends(projectId: number): Promise<Array<{ period: string; sentiment: string; improvement_score: number }>> {
     const response = await apiClient.get(`/analytics/projects/${projectId}/retrospective/trends`);
     return response.data;
+  }
+
+  // Issues Endpoints
+  static async getProjectIssues(projectId: number): Promise<Issue[]> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/available-issues`);
+    return response.data;
+  }
+
+  static async getAllIssues(): Promise<Issue[]> {
+    const response = await apiClient.get('/issues');
+    return response.data.issues || []; // Extract issues array from response
   }
 }
 
