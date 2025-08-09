@@ -14,7 +14,7 @@ import {
   Icon,
   Badge,
 } from '@chakra-ui/react';
-import { FiMenu, FiBarChart, FiTrendingUp, FiTarget, FiHome, FiUsers, FiCalendar, FiActivity, FiLogOut, FiPieChart, FiGitBranch, FiCheckSquare, FiShield, FiAlertTriangle, FiRefreshCw } from 'react-icons/fi';
+import { FiMenu, FiBarChart, FiTrendingUp, FiTarget, FiHome, FiUsers, FiCalendar, FiActivity, FiLogOut, FiPieChart, FiGitBranch, FiCheckSquare, FiShield, FiAlertTriangle, FiRefreshCw, FiSettings, FiDownload, FiClock, FiUserPlus } from 'react-icons/fi';
 import ProjectSelector from './ProjectSelector';
 import { useAuth } from '../hooks/useAuth';
 
@@ -24,20 +24,44 @@ const Layout: React.FC = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const navigationItems = [
-    { icon: FiHome, label: 'Home', path: '/' },
-    { icon: FiBarChart, label: 'Dashboard', path: '/dashboard' },
-    { icon: FiTrendingUp, label: 'Velocity', path: '/velocity' },
-    { icon: FiTarget, label: 'Epics', path: '/epics' },
-    { icon: FiPieChart, label: 'Epic Chart', path: '/epic-chart' },
-    { icon: FiUsers, label: 'Team', path: '/team' },
-    { icon: FiCalendar, label: 'Sprint', path: '/sprint' },
-    { icon: FiCheckSquare, label: 'Sprint Planning', path: '/sprint-planning' },
-    { icon: FiShield, label: 'Quality Analytics', path: '/quality' },
-    { icon: FiAlertTriangle, label: 'Risk Assessment', path: '/risk-assessment' },
-    { icon: FiRefreshCw, label: 'Retrospective', path: '/retrospective' },
-    { icon: FiActivity, label: 'Health', path: '/health' },
-    { icon: FiGitBranch, label: 'GitLab Integration', path: '/gitlab-integration' },
+    // Main Navigation
+    { icon: FiHome, label: 'Home', path: '/', category: 'main' },
+    { icon: FiBarChart, label: 'Dashboard', path: '/dashboard', category: 'main' },
+    
+    // Analytics & Metrics
+    { icon: FiTrendingUp, label: 'Velocity', path: '/velocity', category: 'analytics' },
+    { icon: FiPieChart, label: 'Epic Progress', path: '/epic-chart', category: 'analytics' },
+    { icon: FiClock, label: 'Lead Time', path: '/lead-time', category: 'analytics' },
+    { icon: FiShield, label: 'Quality Analytics', path: '/quality', category: 'analytics' },
+    { icon: FiAlertTriangle, label: 'Risk Assessment', path: '/risk-assessment', category: 'analytics' },
+    { icon: FiRefreshCw, label: 'Retrospective', path: '/retrospective', category: 'analytics' },
+    
+    // Team & Project Management
+    { icon: FiUsers, label: 'Team Dashboard', path: '/team', category: 'team' },
+    { icon: FiCalendar, label: 'Sprint Dashboard', path: '/sprint', category: 'team' },
+    { icon: FiActivity, label: 'Health Dashboard', path: '/health', category: 'team' },
+    
+    // Planning & Capacity
+    { icon: FiCheckSquare, label: 'Sprint Planning', path: '/sprint-planning', category: 'planning' },
+    { icon: FiTarget, label: 'Capacity Planning', path: '/capacity-planning', category: 'planning' },
+    
+    // Developer Management
+    { icon: FiUserPlus, label: 'Developers', path: '/developers', category: 'developers' },
+    
+    // Configuration
+    { icon: FiSettings, label: 'Provider Config', path: '/provider-config', category: 'config' },
+    { icon: FiDownload, label: 'Import Developers', path: '/import-developers', category: 'config' },
+    { icon: FiGitBranch, label: 'GitLab Integration', path: '/gitlab-integration', category: 'config' },
   ];
+
+  const groupedItems = {
+    main: navigationItems.filter(item => item.category === 'main'),
+    analytics: navigationItems.filter(item => item.category === 'analytics'),
+    team: navigationItems.filter(item => item.category === 'team'),
+    planning: navigationItems.filter(item => item.category === 'planning'),
+    developers: navigationItems.filter(item => item.category === 'developers'),
+    config: navigationItems.filter(item => item.category === 'config'),
+  };
 
   return (
     <Box minH="100vh" bg="gray.50">
@@ -135,7 +159,11 @@ const Layout: React.FC = () => {
 
               <Drawer.Body bg="white">
                 <VStack gap={1} align="stretch" mt={4}>
-                  {navigationItems.map((item) => (
+                  {/* Main Navigation */}
+                  <Text fontSize="xs" fontWeight="bold" color="gray.500" mb={2} mt={2}>
+                    MAIN
+                  </Text>
+                  {groupedItems.main.map((item) => (
                     <Link 
                       to={item.path} 
                       key={item.path} 
@@ -147,7 +175,137 @@ const Layout: React.FC = () => {
                         w="full"
                         justifyContent="flex-start"
                         _hover={{ bg: 'blue.50' }}
-                        h="48px"
+                        h="44px"
+                        color="gray.700"
+                        _active={{ bg: 'blue.100' }}
+                      >
+                        <Icon as={item.icon} mr={3} color="blue.500" />
+                        {item.label}
+                      </Button>
+                    </Link>
+                  ))}
+
+                  {/* Analytics */}
+                  <Text fontSize="xs" fontWeight="bold" color="gray.500" mb={2} mt={4}>
+                    ANALYTICS & METRICS
+                  </Text>
+                  {groupedItems.analytics.map((item) => (
+                    <Link 
+                      to={item.path} 
+                      key={item.path} 
+                      style={{ textDecoration: 'none' }}
+                      onClick={() => setIsDrawerOpen(false)}
+                    >
+                      <Button
+                        variant="ghost"
+                        w="full"
+                        justifyContent="flex-start"
+                        _hover={{ bg: 'blue.50' }}
+                        h="44px"
+                        color="gray.700"
+                        _active={{ bg: 'blue.100' }}
+                      >
+                        <Icon as={item.icon} mr={3} color="blue.500" />
+                        {item.label}
+                      </Button>
+                    </Link>
+                  ))}
+
+                  {/* Team Management */}
+                  <Text fontSize="xs" fontWeight="bold" color="gray.500" mb={2} mt={4}>
+                    TEAM & PROJECT
+                  </Text>
+                  {groupedItems.team.map((item) => (
+                    <Link 
+                      to={item.path} 
+                      key={item.path} 
+                      style={{ textDecoration: 'none' }}
+                      onClick={() => setIsDrawerOpen(false)}
+                    >
+                      <Button
+                        variant="ghost"
+                        w="full"
+                        justifyContent="flex-start"
+                        _hover={{ bg: 'blue.50' }}
+                        h="44px"
+                        color="gray.700"
+                        _active={{ bg: 'blue.100' }}
+                      >
+                        <Icon as={item.icon} mr={3} color="blue.500" />
+                        {item.label}
+                      </Button>
+                    </Link>
+                  ))}
+
+                  {/* Planning */}
+                  <Text fontSize="xs" fontWeight="bold" color="gray.500" mb={2} mt={4}>
+                    PLANNING & CAPACITY
+                  </Text>
+                  {groupedItems.planning.map((item) => (
+                    <Link 
+                      to={item.path} 
+                      key={item.path} 
+                      style={{ textDecoration: 'none' }}
+                      onClick={() => setIsDrawerOpen(false)}
+                    >
+                      <Button
+                        variant="ghost"
+                        w="full"
+                        justifyContent="flex-start"
+                        _hover={{ bg: 'blue.50' }}
+                        h="44px"
+                        color="gray.700"
+                        _active={{ bg: 'blue.100' }}
+                      >
+                        <Icon as={item.icon} mr={3} color="blue.500" />
+                        {item.label}
+                      </Button>
+                    </Link>
+                  ))}
+
+                  {/* Developers */}
+                  <Text fontSize="xs" fontWeight="bold" color="gray.500" mb={2} mt={4}>
+                    DEVELOPER MANAGEMENT
+                  </Text>
+                  {groupedItems.developers.map((item) => (
+                    <Link 
+                      to={item.path} 
+                      key={item.path} 
+                      style={{ textDecoration: 'none' }}
+                      onClick={() => setIsDrawerOpen(false)}
+                    >
+                      <Button
+                        variant="ghost"
+                        w="full"
+                        justifyContent="flex-start"
+                        _hover={{ bg: 'blue.50' }}
+                        h="44px"
+                        color="gray.700"
+                        _active={{ bg: 'blue.100' }}
+                      >
+                        <Icon as={item.icon} mr={3} color="blue.500" />
+                        {item.label}
+                      </Button>
+                    </Link>
+                  ))}
+
+                  {/* Configuration */}
+                  <Text fontSize="xs" fontWeight="bold" color="gray.500" mb={2} mt={4}>
+                    CONFIGURATION
+                  </Text>
+                  {groupedItems.config.map((item) => (
+                    <Link 
+                      to={item.path} 
+                      key={item.path} 
+                      style={{ textDecoration: 'none' }}
+                      onClick={() => setIsDrawerOpen(false)}
+                    >
+                      <Button
+                        variant="ghost"
+                        w="full"
+                        justifyContent="flex-start"
+                        _hover={{ bg: 'blue.50' }}
+                        h="44px"
                         color="gray.700"
                         _active={{ bg: 'blue.100' }}
                       >

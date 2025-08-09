@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Box,
@@ -11,12 +11,49 @@ import {
   Container,
   SimpleGrid,
   Badge,
+
 } from '@chakra-ui/react';
-import { FiBarChart, FiTrendingUp, FiTarget, FiUsers, FiCalendar, FiActivity, FiDownload } from 'react-icons/fi';
+import { FiBarChart, FiTrendingUp, FiTarget, FiUsers, FiCalendar, FiActivity, FiDownload, FiShield } from 'react-icons/fi';
 import { useProject } from '../hooks/useProject';
+import { useAuth } from '../hooks/useAuth';
+import GitLabAnalyticsAPI from '../services/api';
 
 const Home: React.FC = () => {
   const { selectedProject } = useProject();
+  const { getToken, isSignedIn } = useAuth();
+  const [testResult, setTestResult] = useState<string>('');
+  const [isTestingAuth, setIsTestingAuth] = useState(false);
+  
+  const testAuthentication = async () => {
+    setIsTestingAuth(true);
+    setTestResult('Testing authentication...');
+    
+    try {
+      // First, test if we can get a token
+      if (getToken) {
+        const token = await getToken();
+        if (token) {
+          setTestResult(`✅ Token obtained: ${token.substring(0, 20)}...`);
+          
+          // Now test a simple API call
+          try {
+            const healthResult = await GitLabAnalyticsAPI.healthCheck();
+            setTestResult(`✅ Authentication successful! Health check: ${JSON.stringify(healthResult)}`);
+          } catch (apiError) {
+            setTestResult(`❌ API Error: ${apiError instanceof Error ? apiError.message : 'Unknown error'}`);
+          }
+        } else {
+          setTestResult('❌ No token available');
+        }
+      } else {
+        setTestResult('❌ getToken function not available');
+      }
+    } catch (error) {
+      setTestResult(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsTestingAuth(false);
+    }
+  };
 
   return (
     <Container maxW="container.xl" py={8}>
@@ -279,6 +316,50 @@ const Home: React.FC = () => {
             </Link>
           </HStack>
         </Box>
+
+        {/* Debug Section - Authentication Test */}
+        {isSignedIn && (
+          <Box>
+            <Heading size="lg" mb={6} textAlign="center" color="gray.600">
+              🛠️ Debug Tools
+            </Heading>
+            <Box bg="gray.50" p={6} borderRadius="lg" border="1px solid" borderColor="gray.200">
+              <VStack gap={4}>
+                <HStack justify="center" gap={4}>
+                  <Button
+                    colorScheme="yellow"
+                    variant="outline"
+                    onClick={testAuthentication}
+                    loading={isTestingAuth}
+                    size="sm"
+                  >
+                    <Icon as={FiShield} mr={2} />
+                    Test Authentication
+                  </Button>
+                </HStack>
+                
+                {testResult && (
+                  <Box 
+                    p={4} 
+                    borderRadius="md" 
+                    bg={testResult.includes('✅') ? 'green.50' : 'red.50'}
+                    border="1px solid"
+                    borderColor={testResult.includes('✅') ? 'green.200' : 'red.200'}
+                  >
+                    <VStack align="start" gap={2}>
+                      <Text fontWeight="bold" color={testResult.includes('✅') ? 'green.700' : 'red.700'}>
+                        Authentication Test Result
+                      </Text>
+                      <Text fontFamily="mono" fontSize="sm" color="gray.700">
+                        {testResult}
+                      </Text>
+                    </VStack>
+                  </Box>
+                )}
+              </VStack>
+            </Box>
+          </Box>
+        )}
       </VStack>
     </Container>
   );

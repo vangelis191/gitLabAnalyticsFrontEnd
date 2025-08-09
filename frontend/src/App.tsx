@@ -14,12 +14,20 @@ import SprintPlanning from './features/sprint-planning/SprintPlanning';
 import QualityAnalytics from './features/quality/QualityAnalytics';
 import RiskAssessment from './features/risk-assessment/RiskAssessment';
 import RetrospectiveAnalytics from './features/retrospective/RetrospectiveAnalytics';
+// New Developer Management Components
+import DeveloperList from './features/developer-management/DeveloperList';
+import CapacityPlanning from './features/developer-management/CapacityPlanning';
+// New Provider Integration Components
+import ProviderConfig from './features/provider-integration/ProviderConfig';
+import ImportDevelopers from './features/provider-integration/ImportDevelopers';
+// New Advanced Analytics Components
+import LeadTimeAnalytics from './features/advanced-analytics/LeadTimeAnalytics';
 import NotFound from './pages/NotFound';
 import { ProjectProvider } from './contexts/ProjectContext';
 import { useAuth } from './hooks/useAuth';
 
 function App() {
-  const { isSignedIn, isLoading } = useAuth();
+  const { isSignedIn, isLoading, getToken } = useAuth();
 
   // Show loading while authentication is initializing
   if (isLoading) {
@@ -35,6 +43,22 @@ function App() {
         Loading...
       </div>
     );
+  }
+
+  // Debug: Test token availability when signed in
+  if (isSignedIn && getToken) {
+    const testToken = async () => {
+      try {
+        const token = await getToken();
+        console.log('🧪 Debug - Token available in App:', !!token);
+        if (token) {
+          console.log('🧪 Debug - Token preview:', token.substring(0, 20) + '...');
+        }
+      } catch (error) {
+        console.error('🧪 Debug - Error getting token in App:', error);
+      }
+    };
+    testToken();
   }
 
   // Show Clerk SignIn if user is not signed in
@@ -66,18 +90,37 @@ function App() {
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
+          
+          {/* Main Dashboards */}
           <Route path="dashboard" element={<Dashboard />} />
-          <Route path="velocity" element={<Velocity />} />
-          {/* <Route path="epics" element={<EpicProgress />} /> */}
-          <Route path="epic-chart" element={<EpicProgressChart />} />
           <Route path="team" element={<TeamDashboard />} />
           <Route path="sprint" element={<SprintDashboard />} />
-          <Route path="sprint-planning" element={<SprintPlanning />} />
+          <Route path="health" element={<HealthDashboard />} />
+          
+          {/* Analytics & Metrics */}
+          <Route path="velocity" element={<Velocity />} />
+          <Route path="epic-chart" element={<EpicProgressChart />} />
           <Route path="quality" element={<QualityAnalytics />} />
           <Route path="risk-assessment" element={<RiskAssessment />} />
           <Route path="retrospective" element={<RetrospectiveAnalytics />} />
-          <Route path="health" element={<HealthDashboard />} />
+          
+          {/* Sprint Planning */}
+          <Route path="sprint-planning" element={<SprintPlanning />} />
+          <Route path="capacity-planning" element={<CapacityPlanning />} />
+          
+          {/* Developer Management */}
+          <Route path="developers" element={<DeveloperList />} />
+          
+          {/* Provider Integration */}
+          <Route path="provider-config" element={<ProviderConfig />} />
+          <Route path="import-developers" element={<ImportDevelopers />} />
+          
+          {/* Advanced Analytics */}
+          <Route path="lead-time" element={<LeadTimeAnalytics />} />
+          
+          {/* Legacy GitLab Integration */}
           <Route path="gitlab-integration" element={<GitLabIntegration />} />
+          
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

@@ -9,7 +9,9 @@ export const useAuth = () => {
   useEffect(() => {
     const setupToken = async () => {
       if (getToken) {
+        // Store the getToken function globally for axios interceptor
         (window as unknown as { __clerkGetToken?: () => Promise<string | null> }).__clerkGetToken = getToken;
+        console.log('🔧 Global getToken function set up');
         
         // Get initial token and store in localStorage for immediate use
         if (isSignedIn) {
@@ -17,12 +19,19 @@ export const useAuth = () => {
             const token = await getToken();
             if (token) {
               localStorage.setItem('clerk-token', token);
-              console.log('Initial token stored in localStorage');
+              console.log('🎫 Initial token stored in localStorage');
+              console.log('🔍 Token preview:', token.substring(0, 20) + '...');
+            } else {
+              console.warn('⚠️ No initial token received from Clerk');
             }
           } catch (error) {
-            console.error('Error getting initial token:', error);
+            console.error('❌ Error getting initial token:', error);
           }
+        } else {
+          console.log('👤 User not signed in, skipping token setup');
         }
+      } else {
+        console.warn('⚠️ getToken function not available');
       }
     };
     
@@ -31,6 +40,7 @@ export const useAuth = () => {
     return () => {
       // Clean up on unmount
       delete (window as unknown as { __clerkGetToken?: () => Promise<string | null> }).__clerkGetToken;
+      console.log('🧹 Cleaned up global getToken function');
     };
   }, [getToken, isSignedIn]);
 

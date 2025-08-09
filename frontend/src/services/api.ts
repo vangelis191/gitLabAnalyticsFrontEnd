@@ -14,29 +14,41 @@ const apiClient = axios.create({
 // Add request interceptor to add fresh token to each request
 apiClient.interceptors.request.use(
   async (config) => {
-    // Get fresh token from Clerk for each request
+    // First try to get fresh token from Clerk function
     const getTokenFunction = (window as unknown as { __clerkGetToken?: () => Promise<string | null> }).__clerkGetToken;
+    
+    let token: string | null = null;
     
     if (getTokenFunction) {
       try {
-        const token = await getTokenFunction();
+        token = await getTokenFunction();
         if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
+          console.log('✅ Got fresh token from Clerk');
         } else {
-          console.warn('No token received from Clerk getToken()');
+          console.warn('⚠️ No token received from Clerk getToken()');
         }
       } catch (error) {
-        console.error('Error getting fresh token for request:', error);
+        console.error('❌ Error getting fresh token for request:', error);
       }
-    } else {
-      // Fallback: try localStorage for backward compatibility
+    }
+    
+    // Fallback: try localStorage if no fresh token
+    if (!token) {
       const storedToken = localStorage.getItem('clerk-token');
       if (storedToken) {
-        config.headers.Authorization = `Bearer ${storedToken}`;
-        console.log('Using fallback token from localStorage');
-      } else {
-        console.warn('No getToken function available and no localStorage token found');
+        token = storedToken;
+        console.log('🔄 Using fallback token from localStorage');
       }
+    }
+    
+    // Set authorization header if we have a token
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+      console.log('🔐 Authorization header set for request to:', config.url);
+    } else {
+      console.error('🚫 No token available for request to:', config.url);
+      // Optional: You might want to reject the request or redirect to login
+      // throw new Error('No authentication token available');
     }
     
     return config;
@@ -318,6 +330,9 @@ export interface SprintPlanningCommitment {
   accuracy_factor: number;
   sprint_duration: number;
   team_size: number;
+  team_breakdown?: Record<string, {
+    utilization: 'optimal' | 'underutilized' | 'overutilized';
+  }>;
 }
 
 export interface DashboardOverview {
@@ -421,6 +436,301 @@ export interface TokenVerification {
     id: string;
     email: string;
   };
+}
+
+// Developer Management Interfaces
+export interface Developer {
+  id: number;
+  name: string;
+  email: string;
+  provider_type: string;
+  provider_username: string;
+  provider_user_id?: string;
+  provider_data?: Record<string, unknown>;
+  working_hours_per_day: number;
+  working_days_per_week: number;
+  availability_factor: number;
+  experience_level: string;
+  hourly_rate: number;
+  team_name: string;
+  project_id: number;
+  is_active: boolean;
+  start_date?: string;
+  end_date?: string;
+}
+
+export interface CreateDeveloperRequest {
+  name: string;
+  email: string;
+  provider_type: string;
+  provider_username: string;
+  working_hours_per_day: number;
+  working_days_per_week: number;
+  availability_factor: number;
+  experience_level: string;
+  hourly_rate: number;
+  team_name: string;
+  project_id: number;
+}
+
+export interface UpdateDeveloperRequest {
+  working_hours_per_day?: number;
+  working_days_per_week?: number;
+  availability_factor?: number;
+  experience_level?: string;
+  hourly_rate?: number;
+  team_name?: string;
+  is_active?: boolean;
+}
+
+export interface DeveloperCapacity {
+  developer_name: string;
+  sprint_duration_weeks: number;
+  capacity_config: {
+    working_hours_per_day: number;
+    working_days_per_week: number;
+    availability_factor: number;
+    experience_level: string;
+    hourly_rate: number;
+  };
+  calculated_capacity: {
+    total_working_hours: number;
+    available_hours: number;
+    daily_capacity: number;
+    weekly_capacity: number;
+  };
+}
+
+export interface BulkCapacityRequest {
+  team_members: string[];
+  sprint_duration: number;
+}
+
+export interface BulkCapacityResponse {
+  team_capacity: Record<string, {
+    historical_velocity?: number;
+    available_hours: number;
+    recommended_capacity: number;
+    working_hours_per_day: number;
+    working_days_per_week: number;
+    availability_factor: number;
+  }>;
+  sprint_duration: number;
+  total_capacity: number;
+  total_available_hours: number;
+}
+
+// Provider Integration Interfaces
+export interface ProviderConfig {
+  provider_type: string;
+  provider_url: string;
+  access_token: string;
+  provider_config?: Record<string, unknown>;
+  company_name?: string;
+  company_domain?: string;
+}
+
+export interface ImportDevelopersResponse {
+  message: string;
+  project_id: number;
+  provider_type: string;
+  imported_count: number;
+  updated_count: number;
+  skipped_count: number;
+  total_processed: number;
+  errors: string[];
+  sync_operation?: boolean;
+}
+
+export interface PreviewImportRequest {
+  provider_type: string;
+  provider_url: string;
+  access_token: string;
+  external_project_id?: string;
+}
+
+export interface PreviewImportResponse {
+  preview_users: Array<{
+    username: string;
+    name: string;
+    email: string;
+    is_active: boolean;
+    will_be_imported: boolean;
+  }>;
+  total_users_found: number;
+  active_users_count: number;
+  inactive_users_count: number;
+  provider_type: string;
+}
+
+export interface ProviderInfo {
+  type: string;
+  name: string;
+  description: string;
+  default_url: string;
+  supports: string[];
+}
+
+export interface ConnectionTestResponse {
+  connection_status: boolean;
+  provider_type: string;
+  provider_url: string;
+}
+
+export interface ImportStatusResponse {
+  project_id: number;
+  project_name: string;
+  provider_type: string;
+  provider_url: string;
+  provider_configured: boolean;
+  provider_connection_status: boolean;
+  total_developers: number;
+  active_developers: number;
+  company_name?: string;
+  company_domain?: string;
+}
+
+// Provider Mapping Interfaces
+export interface ProviderMapping {
+  provider: string;
+  mappings: Record<string, string>;
+  total_mappings: number;
+}
+
+export interface CreateMappingRequest {
+  developer_name: string;
+  external_username: string;
+}
+
+export interface SuggestMappingsRequest {
+  external_usernames: string[];
+}
+
+export interface SuggestMappingsResponse {
+  provider: string;
+  suggestions: Record<string, string[]>;
+  unmapped_users: string[];
+}
+
+export interface AutoMapRequest {
+  issues_data: Array<{
+    assignee?: string;
+    reporter?: string;
+    title: string;
+  }>;
+}
+
+export interface AutoMapResponse {
+  provider: string;
+  auto_mappings: Record<string, string>;
+  mapped_count: number;
+  message: string;
+}
+
+export interface ResolveUserResponse {
+  provider: string;
+  external_username: string;
+  resolved_developer: Developer;
+  all_provider_mappings: Record<string, string>;
+}
+
+export interface BulkImportMappingsRequest {
+  [provider: string]: Record<string, string>;
+}
+
+export interface AllDevelopersWithMappingsResponse {
+  developers: Array<Developer & {
+    provider_mappings: Record<string, string>;
+    supported_providers: string[];
+  }>;
+  total_developers: number;
+}
+
+// Advanced Analytics Interfaces
+export interface QualityMetrics {
+  total_issues: number;
+  code_coverage_percent?: number;
+  technical_debt_hours?: number;
+  bug_rate_percent: number;
+  test_pass_rate?: number;
+  code_review_coverage?: number;
+}
+
+export interface TechnicalDebtImpact {
+  total_technical_debt_hours: number;
+  impact_on_velocity_percent: number;
+  debt_trend: 'increasing' | 'decreasing' | 'stable';
+  critical_debt_items: Array<{
+    id: string;
+    title: string;
+    debt_hours: number;
+    priority: string;
+  }>;
+}
+
+export interface RiskAnalysis {
+  risk_level: 'low' | 'medium' | 'high' | 'critical';
+  risk_factors: Array<{
+    factor: string;
+    impact: number;
+    probability: number;
+    mitigation: string;
+  }>;
+  overall_risk_score: number;
+}
+
+export interface RetrospectiveAnalysis {
+  sprint_id: number;
+  sprint_title: string;
+  what_went_well: string[];
+  what_went_wrong: string[];
+  action_items: string[];
+  team_sentiment: 'positive' | 'neutral' | 'negative';
+  velocity_trend: number;
+}
+
+export interface BusinessValueMetrics {
+  total_business_value: number;
+  value_per_sprint: number;
+  roi_percentage: number;
+  cost_per_story_point: number;
+  value_delivery_trend: number;
+}
+
+export interface BacklogPrioritization {
+  high_value_items: Array<{
+    id: string;
+    title: string;
+    business_value: number;
+    effort: number;
+  }>;
+  quick_wins: Array<{
+    id: string;
+    title: string;
+    business_value: number;
+    effort: number;
+  }>;
+  major_projects: Array<{
+    id: string;
+    title: string;
+    business_value: number;
+    effort: number;
+  }>;
+  fill_ins: Array<{
+    id: string;
+    title: string;
+    business_value: number;
+    effort: number;
+  }>;
+  prioritization_matrix: Record<string, unknown>;
+}
+
+export interface CollaborationAnalysis {
+  team_collaboration_score: number;
+  pair_programming_frequency: number;
+  code_review_participation: number;
+  knowledge_sharing_score: number;
+  communication_effectiveness: number;
 }
 
 export interface Project {
@@ -793,6 +1103,289 @@ export class GitLabAnalyticsAPI {
 
   static async getOptionalAuthRoute(): Promise<unknown> {
     const response = await apiClient.get('/auth/optional');
+    return response.data;
+  }
+
+  // Developer Management Endpoints
+  static async getAllDevelopers(projectId?: number, teamName?: string): Promise<Developer[]> {
+    const params: Record<string, string | number> = {};
+    if (projectId) params.project_id = projectId;
+    if (teamName) params.team_name = teamName;
+    const response = await apiClient.get('/developers', { params });
+    return response.data;
+  }
+
+  static async getDeveloperByName(name: string): Promise<Developer> {
+    const response = await apiClient.get(`/developers/${name}`);
+    return response.data;
+  }
+
+  static async createDeveloper(data: CreateDeveloperRequest): Promise<{ message: string; developer: Developer }> {
+    const response = await apiClient.post('/developers', data);
+    return response.data;
+  }
+
+  static async updateDeveloper(developerId: number, data: UpdateDeveloperRequest): Promise<{ message: string; developer: Developer }> {
+    const response = await apiClient.put(`/developers/${developerId}`, data);
+    return response.data;
+  }
+
+  static async getDeveloperCapacity(name: string, sprintDuration?: number): Promise<DeveloperCapacity> {
+    const params = sprintDuration ? { sprint_duration: sprintDuration } : {};
+    const response = await apiClient.get(`/developers/${name}/capacity`, { params });
+    return response.data;
+  }
+
+  static async getAllTeams(): Promise<string[]> {
+    const response = await apiClient.get('/developers/teams');
+    return response.data;
+  }
+
+  static async getBulkCapacity(data: BulkCapacityRequest): Promise<BulkCapacityResponse> {
+    const response = await apiClient.post('/developers/capacity/bulk', data);
+    return response.data;
+  }
+
+  // Provider Integration Endpoints
+  static async importDevelopersFromProvider(projectId: number): Promise<ImportDevelopersResponse> {
+    const response = await apiClient.post(`/projects/${projectId}/import-developers`);
+    return response.data;
+  }
+
+  static async importDevelopersWithCustomConfig(projectId: number, config: ProviderConfig): Promise<ImportDevelopersResponse> {
+    const response = await apiClient.post(`/projects/${projectId}/import-developers/custom`, config);
+    return response.data;
+  }
+
+  static async updateProjectProviderConfig(projectId: number, config: ProviderConfig): Promise<{ message: string; project_id: number }> {
+    const response = await apiClient.put(`/projects/${projectId}/provider-config`, config);
+    return response.data;
+  }
+
+  static async getProjectProviderConfig(projectId: number): Promise<Project & ProviderConfig> {
+    const response = await apiClient.get(`/projects/${projectId}/provider-config`);
+    return response.data;
+  }
+
+  static async getImportStatus(projectId: number): Promise<ImportStatusResponse> {
+    const response = await apiClient.get(`/projects/${projectId}/import-status`);
+    return response.data;
+  }
+
+  static async getAvailableProviders(): Promise<{ providers: ProviderInfo[]; total_providers: number }> {
+    const response = await apiClient.get('/providers/available');
+    return response.data;
+  }
+
+  static async testProviderConnection(projectId: number, config?: ProviderConfig): Promise<ConnectionTestResponse> {
+    const response = await apiClient.post(`/projects/${projectId}/test-provider-connection`, config || {});
+    return response.data;
+  }
+
+  static async previewImport(projectId: number, config: PreviewImportRequest): Promise<PreviewImportResponse> {
+    const response = await apiClient.post(`/projects/${projectId}/preview-import`, config);
+    return response.data;
+  }
+
+  static async syncDevelopers(projectId: number): Promise<ImportDevelopersResponse> {
+    const response = await apiClient.post(`/projects/${projectId}/sync-developers`);
+    return response.data;
+  }
+
+  // Provider Mapping Endpoints
+  static async getProviderMappings(providerName: string): Promise<ProviderMapping> {
+    const response = await apiClient.get(`/provider-mappings/${providerName}`);
+    return response.data;
+  }
+
+  static async createProviderMapping(providerName: string, data: CreateMappingRequest): Promise<{ message: string; provider: string; developer_name: string; external_username: string }> {
+    const response = await apiClient.post(`/provider-mappings/${providerName}/map`, data);
+    return response.data;
+  }
+
+  static async suggestMappings(providerName: string, data: SuggestMappingsRequest): Promise<SuggestMappingsResponse> {
+    const response = await apiClient.post(`/provider-mappings/${providerName}/suggest`, data);
+    return response.data;
+  }
+
+  static async autoMapFromData(providerName: string, data: AutoMapRequest): Promise<AutoMapResponse> {
+    const response = await apiClient.post(`/provider-mappings/${providerName}/auto-map`, data);
+    return response.data;
+  }
+
+  static async resolveExternalUser(providerName: string, externalUsername: string): Promise<ResolveUserResponse> {
+    const response = await apiClient.get(`/provider-mappings/${providerName}/resolve/${externalUsername}`);
+    return response.data;
+  }
+
+  static async bulkImportMappings(data: BulkImportMappingsRequest): Promise<{ message: string; results: Record<string, unknown> }> {
+    const response = await apiClient.post('/provider-mappings/bulk-import', data);
+    return response.data;
+  }
+
+  static async getAllDevelopersWithMappings(): Promise<AllDevelopersWithMappingsResponse> {
+    const response = await apiClient.get('/provider-mappings/all-developers');
+    return response.data;
+  }
+
+  // Advanced Analytics Endpoints
+  static async getQualityMetrics(projectId?: number): Promise<QualityMetrics> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/quality/metrics', { params });
+    return response.data;
+  }
+
+  static async getTechnicalDebtImpact(projectId?: number): Promise<TechnicalDebtImpact> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/quality/tech-debt-impact', { params });
+    return response.data;
+  }
+
+  static async getSprintRisks(sprintId: number): Promise<RiskAnalysis> {
+    const response = await apiClient.get(`/analytics/risks/sprint/${sprintId}`);
+    return response.data;
+  }
+
+  static async getProjectRisks(projectId: number): Promise<RiskAnalysis> {
+    const response = await apiClient.get(`/analytics/risks/project/${projectId}`);
+    return response.data;
+  }
+
+  static async getSprintRetrospective(sprintId: number): Promise<RetrospectiveAnalysis> {
+    const response = await apiClient.get(`/analytics/retrospective/${sprintId}`);
+    return response.data;
+  }
+
+  static async getRetrospectiveActions(sprintId: number): Promise<Array<{ id: string; action: string; status: string; assignee?: string }>> {
+    const response = await apiClient.get(`/analytics/retrospective/actions/${sprintId}`);
+    return response.data;
+  }
+
+  static async getRetrospectiveTrends(projectId?: number): Promise<Array<{ period: string; sentiment: string; improvement_score: number }>> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/retrospective/trends', { params });
+    return response.data;
+  }
+
+  static async getBusinessValueMetrics(projectId?: number): Promise<BusinessValueMetrics> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/business-value/metrics', { params });
+    return response.data;
+  }
+
+  static async getBacklogPrioritization(projectId?: number): Promise<BacklogPrioritization> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/business-value/backlog-prioritization', { params });
+    return response.data;
+  }
+
+  static async getROITrends(projectId?: number): Promise<Array<{ period: string; roi_percentage: number; investment: number; return: number }>> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/business-value/roi-trends', { params });
+    return response.data;
+  }
+
+  static async getTeamCollaborationAnalysis(projectId?: number): Promise<CollaborationAnalysis> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await apiClient.get('/analytics/collaboration/team-analysis', { params });
+    return response.data;
+  }
+
+  static async getReleasePlanningReadiness(releaseId: number): Promise<{ release_id: number; readiness_score: number; blockers: string[]; estimated_completion: string }> {
+    const response = await apiClient.get(`/analytics/release-planning/readiness/${releaseId}`);
+    return response.data;
+  }
+
+  // Project-Specific Enhanced Endpoints
+  static async getProjectGitLabVelocity(projectId: number): Promise<GitLabVelocity[]> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/gitlab/velocity`);
+    return response.data;
+  }
+
+  static async getProjectTeamCapacity(projectId: number): Promise<TeamCapacity[]> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/gitlab/team-capacity`);
+    return response.data;
+  }
+
+  static async getProjectIssueTypes(projectId: number): Promise<IssueTypeAnalysis[]> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/gitlab/issue-types`);
+    return response.data;
+  }
+
+  static async getProjectPriorities(projectId: number): Promise<PriorityAnalysis[]> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/gitlab/priorities`);
+    return response.data;
+  }
+
+  static async getProjectBurndown(projectId: number, milestoneId: number): Promise<BurndownData> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/gitlab/burndown/${milestoneId}`);
+    return response.data;
+  }
+
+  static async getProjectLeadTime(projectId: number): Promise<LeadTimeAnalysis> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/lead-time`);
+    return response.data;
+  }
+
+  static async getProjectThroughput(projectId: number, days?: number): Promise<ThroughputAnalysis> {
+    const params = days ? { days } : {};
+    const response = await apiClient.get(`/analytics/projects/${projectId}/throughput`, { params });
+    return response.data;
+  }
+
+  static async getProjectDefectRate(projectId: number): Promise<DefectRateAnalysis> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/defect-rate`);
+    return response.data;
+  }
+
+  static async getProjectVelocityForecast(projectId: number, sprintsAhead?: number): Promise<VelocityForecast> {
+    const params = sprintsAhead ? { sprints_ahead: sprintsAhead } : {};
+    const response = await apiClient.get(`/analytics/projects/${projectId}/velocity-forecast`, { params });
+    return response.data;
+  }
+
+  static async getProjectTeamVelocityTrends(projectId: number): Promise<TeamVelocityTrends> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/team-velocity-trends`);
+    return response.data;
+  }
+
+  static async getProjectSprintHealth(projectId: number, milestoneId: number): Promise<SprintHealth> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/sprint-health/${milestoneId}`);
+    return response.data;
+  }
+
+  static async getProjectDashboardOverview(projectId: number): Promise<DashboardOverview> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/dashboard/overview`);
+    return response.data;
+  }
+
+  static async getProjectTeamDashboard(projectId: number): Promise<TeamDashboard> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/dashboard/team`);
+    return response.data;
+  }
+
+  static async getProjectSprintDashboard(projectId: number): Promise<SprintDashboard> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/dashboard/sprint`);
+    return response.data;
+  }
+
+  static async getProjectHealthDashboard(projectId: number): Promise<HealthDashboard> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/dashboard/health`);
+    return response.data;
+  }
+
+  static async getProjectRetrospective(projectId: number, sprintId: number): Promise<RetrospectiveAnalysis> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/retrospective/${sprintId}`);
+    return response.data;
+  }
+
+  static async getProjectRetrospectiveActions(projectId: number, sprintId: number): Promise<Array<{ id: string; action: string; status: string; assignee?: string }>> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/retrospective/actions/${sprintId}`);
+    return response.data;
+  }
+
+  static async getProjectRetrospectiveTrends(projectId: number): Promise<Array<{ period: string; sentiment: string; improvement_score: number }>> {
+    const response = await apiClient.get(`/analytics/projects/${projectId}/retrospective/trends`);
     return response.data;
   }
 }

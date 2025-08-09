@@ -286,10 +286,13 @@ Returns comprehensive time-based velocity metrics.
 ]
 ```
 
-### 14. Team Capacity Analysis
-**GET** `/analytics/gitlab/team-capacity`
+### 14. Team Capacity Analysis (with Project Filter)
+**GET** `/analytics/team-capacity?project_id=1`
 
-Returns team capacity and workload distribution.
+Returns team capacity analysis with optional project filtering.
+
+**Query Parameters:**
+- `project_id` (optional): Filter by specific project ID
 
 **Response:**
 ```json
@@ -800,12 +803,94 @@ Returns available issues for a specific project.
 ### 58. Sprint Planning Capacity
 **GET** `/analytics/sprint-planning/capacity`
 
-Returns sprint planning capacity analysis.
+Calculates team capacity for sprint planning using dynamic developer settings.
+
+**Query Parameters:**
+- `team_members` (required): Team member names (can be multiple)
+- `sprint_duration` (optional): Sprint duration in weeks (default: 2)
+- `project_id` (optional): Project ID for context
+
+**Example:**
+```
+GET /analytics/sprint-planning/capacity?team_members=Nikos&team_members=Maria&sprint_duration=2&project_id=1
+```
+
+**Response:**
+```json
+{
+  "Nikos": {
+    "historical_velocity": 24.0,
+    "available_hours": 68.0,
+    "recommended_capacity": 24.0,
+    "developer_config": {
+      "working_hours_per_day": 8.0,
+      "working_days_per_week": 5,
+      "availability_factor": 0.85,
+      "experience_level": "senior",
+      "hourly_rate": 45.0
+    },
+    "working_hours_per_day": 8.0,
+    "working_days_per_week": 5,
+    "availability_factor": 0.85,
+    "provider_name": "gitlab",
+    "external_username": "Nikos"
+  },
+  "Maria": {
+    "historical_velocity": 18.0,
+    "available_hours": 60.0,
+    "recommended_capacity": 18.0,
+    "developer_config": {
+      "working_hours_per_day": 7.5,
+      "working_days_per_week": 5,
+      "availability_factor": 0.8,
+      "experience_level": "intermediate",
+      "hourly_rate": 35.0
+    },
+    "working_hours_per_day": 7.5,
+    "working_days_per_week": 5,
+    "availability_factor": 0.8,
+    "provider_name": "gitlab",
+    "external_username": "Maria"
+  }
+}
+```
 
 ### 59. Sprint Planning Commitment
 **GET** `/analytics/sprint-planning/commitment`
 
-Returns sprint planning commitment analysis.
+Predicts realistic sprint commitment based on team capacity and historical data.
+
+**Query Parameters:**
+- `team_members` (required): Team member names (can be multiple)
+- `sprint_duration` (optional): Sprint duration in weeks (default: 2)
+- `project_id` (optional): Project ID for context
+
+**Example:**
+```
+GET /analytics/sprint-planning/commitment?team_members=Nikos&team_members=Maria&sprint_duration=2&project_id=1
+```
+
+**Response:**
+```json
+{
+  "total_capacity": 42.0,
+  "total_estimated_effort": 0,
+  "recommended_commitment": 0,
+  "commitment_probability": 1.0,
+  "risk_level": "low",
+  "accuracy_factor": 0.9,
+  "team_breakdown": {
+    "Nikos": {
+      "capacity": 24.0,
+      "utilization": "optimal"
+    },
+    "Maria": {
+      "capacity": 18.0,
+      "utilization": "optimal"
+    }
+  }
+}
+```
 
 ### 60. Quality Metrics
 **GET** `/analytics/quality/metrics`
@@ -866,6 +951,642 @@ Returns team collaboration analysis.
 **GET** `/analytics/release-planning/readiness/{release_id}`
 
 Returns release planning readiness analysis.
+
+---
+
+## 👥 **Developer Management Endpoints**
+
+### 80. Get All Developers
+**GET** `/developers`
+
+Returns all active developers.
+
+**Query Parameters:**
+- `project_id` (optional): Filter by specific project ID
+- `team_name` (optional): Filter by team name
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "name": "Nikos",
+    "email": "nikos@company.com",
+    "provider_type": "gitlab",
+    "provider_username": "nikos.gitlab",
+    "working_hours_per_day": 8.0,
+    "working_days_per_week": 5,
+    "availability_factor": 0.85,
+    "experience_level": "senior",
+    "hourly_rate": 45.0,
+    "team_name": "Backend Team",
+    "project_id": 1,
+    "is_active": true
+  }
+]
+```
+
+### 81. Get Developer by Name
+**GET** `/developers/{name}`
+
+Returns specific developer information.
+
+**Response:**
+```json
+{
+  "id": 1,
+  "name": "Nikos",
+  "email": "nikos@company.com",
+  "provider_type": "gitlab",
+  "provider_username": "nikos.gitlab",
+  "provider_user_id": "123",
+  "provider_data": {...},
+  "working_hours_per_day": 8.0,
+  "working_days_per_week": 5,
+  "availability_factor": 0.85,
+  "experience_level": "senior",
+  "hourly_rate": 45.0,
+  "team_name": "Backend Team",
+  "project_id": 1,
+  "is_active": true,
+  "start_date": "2025-01-01",
+  "end_date": null
+}
+```
+
+### 82. Create New Developer
+**POST** `/developers`
+
+Creates a new developer.
+
+**Request Body:**
+```json
+{
+  "name": "John Doe",
+  "email": "john@company.com",
+  "provider_type": "gitlab",
+  "provider_username": "john.doe",
+  "working_hours_per_day": 8.0,
+  "working_days_per_week": 5,
+  "availability_factor": 0.8,
+  "experience_level": "intermediate",
+  "hourly_rate": 35.0,
+  "team_name": "Frontend Team",
+  "project_id": 1
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Developer created successfully",
+  "developer": {
+    "id": 4,
+    "name": "John Doe",
+    "email": "john@company.com",
+    "working_hours_per_day": 8.0,
+    "working_days_per_week": 5,
+    "availability_factor": 0.8,
+    "experience_level": "intermediate",
+    "hourly_rate": 35.0,
+    "team_name": "Frontend Team",
+    "project_id": 1
+  }
+}
+```
+
+### 83. Update Developer Information
+**PUT** `/developers/{developer_id}`
+
+Updates developer information.
+
+**Request Body:**
+```json
+{
+  "working_hours_per_day": 7.5,
+  "availability_factor": 0.9,
+  "hourly_rate": 40.0
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Developer updated successfully",
+  "developer": {
+    "id": 1,
+    "name": "Nikos",
+    "working_hours_per_day": 7.5,
+    "availability_factor": 0.9,
+    "hourly_rate": 40.0
+  }
+}
+```
+
+### 84. Get Developer Capacity
+**GET** `/developers/{name}/capacity`
+
+Returns developer capacity configuration and calculations.
+
+**Query Parameters:**
+- `sprint_duration` (optional): Sprint duration in weeks (default: 2)
+
+**Response:**
+```json
+{
+  "developer_name": "Nikos",
+  "sprint_duration_weeks": 2,
+  "capacity_config": {
+    "working_hours_per_day": 8.0,
+    "working_days_per_week": 5,
+    "availability_factor": 0.85,
+    "experience_level": "senior",
+    "hourly_rate": 45.0
+  },
+  "calculated_capacity": {
+    "total_working_hours": 80.0,
+    "available_hours": 68.0,
+    "daily_capacity": 6.8,
+    "weekly_capacity": 34.0
+  }
+}
+```
+
+### 85. Get All Teams
+**GET** `/developers/teams`
+
+Returns all unique team names.
+
+**Response:**
+```json
+[
+  "Backend Team",
+  "Frontend Team",
+  "QA Team"
+]
+```
+
+### 86. Bulk Capacity Calculation
+**POST** `/developers/capacity/bulk`
+
+Calculates capacity for multiple developers.
+
+**Request Body:**
+```json
+{
+  "team_members": ["Nikos", "Maria", "Kostas"],
+  "sprint_duration": 2
+}
+```
+
+**Response:**
+```json
+{
+  "team_capacity": {
+    "Nikos": {
+      "historical_velocity": 24.0,
+      "available_hours": 68.0,
+      "recommended_capacity": 24.0,
+      "working_hours_per_day": 8.0,
+      "working_days_per_week": 5,
+      "availability_factor": 0.85
+    }
+  },
+  "sprint_duration": 2,
+  "total_capacity": 158.0,
+  "total_available_hours": 178.0
+}
+```
+
+---
+
+## 🔗 **Provider Mapping Endpoints**
+
+### 87. Get Provider Mappings
+**GET** `/provider-mappings/{provider_name}`
+
+Returns all mappings for a specific provider.
+
+**Response:**
+```json
+{
+  "provider": "gitlab",
+  "mappings": {
+    "nikos.gitlab": "Nikos",
+    "maria.gitlab": "Maria",
+    "kostas.gitlab": "Kostas"
+  },
+  "total_mappings": 3
+}
+```
+
+### 88. Create Provider Mapping
+**POST** `/provider-mappings/{provider_name}/map`
+
+Creates mapping between developer and external username.
+
+**Request Body:**
+```json
+{
+  "developer_name": "Nikos",
+  "external_username": "nikos.gitlab"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Successfully mapped nikos.gitlab to Nikos for gitlab",
+  "provider": "gitlab",
+  "developer_name": "Nikos",
+  "external_username": "nikos.gitlab"
+}
+```
+
+### 89. Suggest Mappings
+**POST** `/provider-mappings/{provider_name}/suggest`
+
+Suggests mappings for external usernames.
+
+**Request Body:**
+```json
+{
+  "external_usernames": ["john.doe", "jane.smith", "unknown.user"]
+}
+```
+
+**Response:**
+```json
+{
+  "provider": "gitlab",
+  "suggestions": {
+    "john.doe": ["John", "John Doe"],
+    "jane.smith": ["Jane", "Jane Smith"]
+  },
+  "unmapped_users": ["john.doe", "jane.smith"]
+}
+```
+
+### 90. Auto-Map from Data
+**POST** `/provider-mappings/{provider_name}/auto-map`
+
+Auto-maps developers from existing issues data.
+
+**Request Body:**
+```json
+{
+  "issues_data": [
+    {"assignee": "nikos.gitlab", "reporter": "maria.gitlab", "title": "Task 1"},
+    {"assignee": "maria.gitlab", "reporter": "kostas.gitlab", "title": "Task 2"}
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "provider": "gitlab",
+  "auto_mappings": {
+    "nikos.gitlab": "Nikos",
+    "maria.gitlab": "Maria",
+    "kostas.gitlab": "Kostas"
+  },
+  "mapped_count": 3,
+  "message": "Successfully auto-mapped 3 users for gitlab"
+}
+```
+
+### 91. Resolve External User
+**GET** `/provider-mappings/{provider_name}/resolve/{external_username}`
+
+Resolves external username to developer.
+
+**Response:**
+```json
+{
+  "provider": "gitlab",
+  "external_username": "nikos.gitlab",
+  "resolved_developer": {
+    "id": 1,
+    "name": "Nikos",
+    "email": "nikos@company.com",
+    "working_hours_per_day": 8.0,
+    "working_days_per_week": 5,
+    "availability_factor": 0.85,
+    "experience_level": "senior",
+    "team_name": "Backend Team"
+  },
+  "all_provider_mappings": {
+    "gitlab": "nikos.gitlab",
+    "jira": "nikos.jira",
+    "azure": "n.petrou"
+  }
+}
+```
+
+### 92. Bulk Import Mappings
+**POST** `/provider-mappings/bulk-import`
+
+Bulk imports mappings from various providers.
+
+**Request Body:**
+```json
+{
+  "gitlab": {
+    "Nikos": "nikos.gitlab",
+    "Maria": "maria.gitlab"
+  },
+  "jira": {
+    "Nikos": "nikos.jira",
+    "Maria": "maria.jira"
+  },
+  "azure": {
+    "Nikos": "n.petrou",
+    "Maria": "m.kara"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Bulk import completed",
+  "results": {
+    "gitlab": {
+      "successful_mappings": [
+        {"developer_name": "Nikos", "external_username": "nikos.gitlab"},
+        {"developer_name": "Maria", "external_username": "maria.gitlab"}
+      ],
+      "failed_mappings": []
+    },
+    "jira": {
+      "successful_mappings": [...],
+      "failed_mappings": []
+    }
+  }
+}
+```
+
+### 93. Get All Developers with Mappings
+**GET** `/provider-mappings/all-developers`
+
+Returns all developers with their provider mappings.
+
+**Response:**
+```json
+{
+  "developers": [
+    {
+      "id": 1,
+      "name": "Nikos",
+      "email": "nikos@company.com",
+      "team_name": "Backend Team",
+      "provider_mappings": {
+        "gitlab": "nikos.gitlab",
+        "jira": "nikos.jira",
+        "azure": "n.petrou"
+      },
+      "supported_providers": ["gitlab", "jira", "azure"]
+    }
+  ],
+  "total_developers": 3
+}
+```
+
+---
+
+## 🔄 **Developer Import & Provider Integration Endpoints**
+
+### 94. Import Developers from Project Provider
+**POST** `/projects/{project_id}/import-developers`
+
+Imports developers from the project's configured provider (GitLab, Azure, etc.).
+
+**Response:**
+```json
+{
+  "message": "Import completed successfully",
+  "project_id": 1,
+  "provider_type": "gitlab",
+  "imported_count": 5,
+  "updated_count": 2,
+  "skipped_count": 1,
+  "total_processed": 8,
+  "errors": []
+}
+```
+
+### 95. Import Developers with Custom Provider Configuration
+**POST** `/projects/{project_id}/import-developers/custom`
+
+Imports developers using custom provider configuration (without updating project settings).
+
+**Request Body:**
+```json
+{
+  "provider_type": "gitlab",
+  "provider_url": "https://gitlab.company.com",
+  "access_token": "your-gitlab-token",
+  "external_project_id": "123"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Import completed successfully",
+  "project_id": 1,
+  "provider_type": "gitlab",
+  "imported_count": 5,
+  "updated_count": 0,
+  "skipped_count": 1,
+  "total_processed": 6,
+  "errors": []
+}
+```
+
+### 96. Update Project Provider Configuration
+**PUT** `/projects/{project_id}/provider-config`
+
+Updates the project's provider configuration.
+
+**Request Body:**
+```json
+{
+  "provider_type": "gitlab",
+  "provider_url": "https://gitlab.company.com",
+  "access_token": "your-gitlab-token",
+  "provider_config": {
+    "project_id": "123",
+    "branch": "main"
+  },
+  "company_name": "Company Inc",
+  "company_domain": "company.com"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Provider configuration updated successfully",
+  "project_id": 1
+}
+```
+
+### 97. Get Project Provider Configuration
+**GET** `/projects/{project_id}/provider-config`
+
+Returns the project's provider configuration (access token is masked).
+
+**Response:**
+```json
+{
+  "id": 1,
+  "name": "Project Name",
+  "provider_type": "gitlab",
+  "provider_url": "https://gitlab.company.com",
+  "provider_token": "***",
+  "provider_config": {
+    "project_id": "123",
+    "branch": "main"
+  },
+  "company_name": "Company Inc",
+  "company_domain": "company.com"
+}
+```
+
+### 98. Get Import Status
+**GET** `/projects/{project_id}/import-status`
+
+Returns the current import status and provider configuration for a project.
+
+**Response:**
+```json
+{
+  "project_id": 1,
+  "project_name": "Project Name",
+  "provider_type": "gitlab",
+  "provider_url": "https://gitlab.company.com",
+  "provider_configured": true,
+  "provider_connection_status": true,
+  "total_developers": 8,
+  "active_developers": 7,
+  "company_name": "Company Inc",
+  "company_domain": "company.com"
+}
+```
+
+### 99. Get Available Providers
+**GET** `/providers/available`
+
+Returns list of supported providers.
+
+**Response:**
+```json
+{
+  "providers": [
+    {
+      "type": "gitlab",
+      "name": "GitLab",
+      "description": "GitLab project management and Git repository hosting",
+      "default_url": "https://gitlab.com",
+      "supports": ["users", "projects", "issues", "milestones"]
+    },
+    {
+      "type": "azure",
+      "name": "Azure DevOps",
+      "description": "Microsoft Azure DevOps Services",
+      "default_url": "https://dev.azure.com",
+      "supports": ["users", "projects", "work_items", "iterations"]
+    }
+  ],
+  "total_providers": 2
+}
+```
+
+### 100. Test Provider Connection
+**POST** `/projects/{project_id}/test-provider-connection`
+
+Tests connection to the project's configured provider or custom configuration.
+
+**Request Body (Optional - for testing custom config):**
+```json
+{
+  "provider_type": "gitlab",
+  "provider_url": "https://gitlab.company.com",
+  "access_token": "your-gitlab-token"
+}
+```
+
+**Response:**
+```json
+{
+  "connection_status": true,
+  "provider_type": "gitlab",
+  "provider_url": "https://gitlab.company.com"
+}
+```
+
+### 101. Preview Import
+**POST** `/projects/{project_id}/preview-import`
+
+Previews developers that would be imported without actually importing them.
+
+**Request Body:**
+```json
+{
+  "provider_type": "gitlab",
+  "provider_url": "https://gitlab.company.com",
+  "access_token": "your-gitlab-token",
+  "external_project_id": "123"
+}
+```
+
+**Response:**
+```json
+{
+  "preview_users": [
+    {
+      "username": "john.doe",
+      "name": "John Doe",
+      "email": "john@company.com",
+      "is_active": true,
+      "will_be_imported": true
+    },
+    {
+      "username": "jane.smith",
+      "name": "Jane Smith",
+      "email": "jane@company.com",
+      "is_active": true,
+      "will_be_imported": true
+    }
+  ],
+  "total_users_found": 10,
+  "active_users_count": 8,
+  "inactive_users_count": 2,
+  "provider_type": "gitlab"
+}
+```
+
+### 102. Sync Developers
+**POST** `/projects/{project_id}/sync-developers`
+
+Syncs existing developers with fresh data from the provider.
+
+**Response:**
+```json
+{
+  "message": "Developers synced successfully",
+  "project_id": 1,
+  "provider_type": "gitlab",
+  "imported_count": 0,
+  "updated_count": 5,
+  "skipped_count": 1,
+  "total_processed": 6,
+  "sync_operation": true,
+  "errors": []
+}
+```
 
 ---
 
@@ -1032,7 +1753,7 @@ Verifies JWT token.
 
 ## 📊 **Complete API Summary**
 
-### **Total Endpoints: 79**
+### **Total Endpoints: 102**
 
 **Core Analytics (12 endpoints):**
 - Projects, Milestones, Epics
@@ -1043,8 +1764,8 @@ Verifies JWT token.
 - Epic Progress & Period Success
 
 **GitLab Time-Based Analytics (5 endpoints):**
+- Team Capacity (with Project Filter)
 - GitLab Velocity
-- Team Capacity
 - Issue Types
 - Priorities
 - Burndown Charts
@@ -1085,6 +1806,29 @@ Verifies JWT token.
 - Epics List
 - Milestones List
 - Health Check
+
+**Developer Management (7 endpoints):**
+- Get All Developers (with filters)
+- Get/Create/Update Developer
+- Developer Capacity Calculations
+- Team Management
+- Bulk Capacity Operations
+
+**Provider Mapping (7 endpoints):**
+- Provider-specific Mappings
+- Auto-mapping from Data
+- Bulk Import/Export
+- User Resolution
+- Mapping Suggestions
+
+**Developer Import & Provider Integration (9 endpoints):**
+- Import Developers from Project Provider
+- Custom Provider Import
+- Provider Configuration Management
+- Import Status & Preview
+- Available Providers
+- Connection Testing
+- Developer Sync Operations
 
 **Authentication (5 endpoints):**
 - User Profile
@@ -1161,3 +1905,116 @@ Error responses include a descriptive message:
         -d '{"email": "test@example.com", "password": "password123"}' \
         http://localhost:5001/auth/generate-jwt
    ```
+
+5. **Test Developer Management:**
+   ```bash
+   # Get all developers
+   curl -H "Authorization: Bearer <your-jwt-token>" \
+        http://localhost:5001/developers
+   
+   # Get developer capacity
+   curl -H "Authorization: Bearer <your-jwt-token>" \
+        http://localhost:5001/developers/Nikos/capacity?sprint_duration=2
+   
+   # Sprint planning with dynamic settings
+   curl -H "Authorization: Bearer <your-jwt-token>" \
+        "http://localhost:5001/analytics/sprint-planning/capacity?team_members=Nikos&team_members=Maria&sprint_duration=2&project_id=1"
+   ```
+
+6. **Test Provider Mappings:**
+   ```bash
+   # Get GitLab mappings
+   curl -H "Authorization: Bearer <your-jwt-token>" \
+        http://localhost:5001/provider-mappings/gitlab
+   
+   # Resolve external user
+   curl -H "Authorization: Bearer <your-jwt-token>" \
+        http://localhost:5001/provider-mappings/gitlab/resolve/nikos.gitlab
+   ```
+
+7. **Test Developer Import & Provider Integration:**
+   ```bash
+   # Get available providers
+   curl -H "Authorization: Bearer <your-jwt-token>" \
+        http://localhost:5001/providers/available
+   
+   # Update project provider config
+   curl -X PUT -H "Content-Type: application/json" \
+        -H "Authorization: Bearer <your-jwt-token>" \
+        -d '{"provider_type": "gitlab", "provider_url": "https://gitlab.com", "access_token": "your-token"}' \
+        http://localhost:5001/projects/1/provider-config
+   
+   # Test provider connection
+   curl -X POST -H "Content-Type: application/json" \
+        -H "Authorization: Bearer <your-jwt-token>" \
+        -d '{"provider_type": "gitlab", "provider_url": "https://gitlab.com", "access_token": "your-token"}' \
+        http://localhost:5001/projects/1/test-provider-connection
+   
+   # Preview import
+   curl -X POST -H "Content-Type: application/json" \
+        -H "Authorization: Bearer <your-jwt-token>" \
+        -d '{"provider_type": "gitlab", "provider_url": "https://gitlab.com", "access_token": "your-token"}' \
+        http://localhost:5001/projects/1/preview-import
+   
+   # Import developers
+   curl -X POST -H "Authorization: Bearer <your-jwt-token>" \
+        http://localhost:5001/projects/1/import-developers
+   
+   # Check import status
+   curl -H "Authorization: Bearer <your-jwt-token>" \
+        http://localhost:5001/projects/1/import-status
+   ```
+
+---
+
+## 🏗️ **Architecture & Future Microservices**
+
+### **Current Monolithic Structure**
+```
+Flask App (Python)
+├── Analytics Service (Core calculations)
+├── Developer Management (Local database)
+├── Provider Integration (GitLab, Azure, etc.)
+├── Project Management
+└── Authentication (Clerk)
+```
+
+### **Future Microservices Architecture**
+```
+API Gateway
+├── Analytics Service (Python/Flask) - Calculations only
+├── User Management Service (.NET) - Developer & provider management
+├── Project Management Service (.NET) - Projects, issues, milestones
+├── Provider Integration Service (.NET) - GitLab, Azure, Jira APIs
+└── Authentication Service (Clerk/Azure AD)
+```
+
+### **Migration Strategy**
+The current API is designed for easy migration to microservices:
+
+1. **Service Abstraction Layer**: All external dependencies go through service interfaces
+2. **Repository Pattern**: Database access is abstracted and can be replaced with HTTP calls
+3. **Configuration-based Switching**: `MICROSERVICES_MODE` flag to switch between local DB and external APIs
+4. **Provider-agnostic Design**: Generic interfaces that work with any provider (GitLab, Azure, Jira)
+
+### **Developer Workflow**
+```
+1. Setup Project with Provider (GitLab/Azure/Jira)
+2. Import Developers from Provider API
+3. Customize Developer Settings (hours, availability, rates)
+4. Use in Analytics (capacity planning, sprint commitment)
+5. Sync changes back to provider (future feature)
+```
+
+### **Key Features for Frontend Integration**
+- **Dynamic Developer Settings**: Real-time capacity calculations based on actual developer configurations
+- **Provider Flexibility**: Support for multiple project management tools (GitLab, Azure DevOps)
+- **Developer Import**: Automatic import of developers from external providers with customizable settings
+- **Provider Configuration**: Project-level provider configuration with connection testing
+- **Sprint Planning**: Advanced capacity and commitment predictions using real developer data
+- **Import Preview**: Preview developers before importing with detailed information
+- **Real-time Sync**: Keep developer data synchronized with external providers
+- **Connection Testing**: Validate provider credentials and connectivity
+- **Team Management**: Organize developers by teams and projects
+- **Historical Data**: Track changes over time for better predictions
+- **Microservices Ready**: Architecture designed for easy migration to .NET microservices
